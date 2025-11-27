@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import {
   Code,
   Users,
@@ -48,30 +47,144 @@ import {
   MapPin,
   Clock,
   Server,
-  Activity,
-  Check,
-  Layers,
-  ScrollText
+  Activity
 } from 'lucide-react';
 
-// Import extracted components
-import { CyberButton, BrokenSciFiButton } from './components/CyberButton';
-import { AnimatedSection } from './components/AnimatedSection';
-import { HoloDataPanel } from './components/HoloDataPanel';
-import { FateWheelBackground } from './components/FateWheelBackground';
-import { FAQItem } from './components/FAQItem';
-import { EventCarousel } from './components/EventCarousel';
-import CourseInfoPage from './pages/CourseInfoPage';
+// --- CUSTOM HOOKS ---
+const useScrollReveal = (threshold = 0.1) => {
+  const [isVisible, setIsVisible] = useState(false);
+  const domRef = useRef();
 
-// --- CUSTOM HOOKS & COMPONENTS (now imported from separate files) ---
-// Components extracted: useScrollReveal, AnimatedSection, FateWheelBackground, HoloDataPanel, CyberButton, BrokenSciFiButton, FAQItem, EventCarousel
+  useEffect(() => {
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+        }
+      });
+    }, { threshold });
 
-// --- OTHER COMPONENTS ---
-// FateWheelBackground - now imported from ./components/FateWheelBackground.jsx
+    const currentElement = domRef.current;
+    if (currentElement) {
+      observer.observe(currentElement);
+    }
+
+    return () => {
+      if (currentElement) {
+        observer.unobserve(currentElement);
+      }
+    };
+  }, [threshold]);
+
+  return [domRef, isVisible];
+};
+
+// --- BACKGROUND COMPONENTS ---
+const FateWheelBackground = () => (
+  <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120vw] h-[120vw] md:w-[80vw] md:h-[80vw] opacity-20 pointer-events-none z-0 select-none overflow-visible flex items-center justify-center">
+    <svg viewBox="0 0 1000 1000" className="w-full h-full animate-[spin_60s_linear_infinite]">
+      <defs>
+        <linearGradient id="wheel-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#06b6d4" stopOpacity="0" />
+          <stop offset="50%" stopColor="#06b6d4" stopOpacity="0.8" />
+          <stop offset="100%" stopColor="#06b6d4" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <circle cx="500" cy="500" r="450" fill="none" stroke="url(#wheel-gradient)" strokeWidth="6" strokeDasharray="40 20" opacity="0.6" />
+      <g className="origin-center animate-[spin_40s_linear_infinite_reverse]">
+        <circle cx="500" cy="500" r="350" fill="none" stroke="#0891b2" strokeWidth="4" opacity="0.4" />
+        {[...Array(8)].map((_, i) => (
+          <rect key={i} x="492" y="140" width="16" height="40" fill="#06b6d4" transform={`rotate(${i * 45} 500 500)`} />
+        ))}
+      </g>
+      <g className="origin-center animate-[spin_20s_linear_infinite]">
+        <circle cx="500" cy="500" r="250" fill="none" stroke="#22d3ee" strokeWidth="12" strokeDasharray="100 250" opacity="0.7" />
+        <circle cx="500" cy="500" r="230" fill="none" stroke="#fff" strokeWidth="2" opacity="0.2" />
+        <path d="M 500 250 L 500 320 M 500 680 L 500 750 M 250 500 L 320 500 M 680 500 L 750 500" stroke="#06b6d4" strokeWidth="8" />
+      </g>
+      <circle cx="500" cy="500" r="100" fill="none" stroke="#06b6d4" strokeWidth="4" opacity="0.5" />
+      <circle cx="500" cy="500" r="60" fill="none" stroke="#fff" strokeWidth="4" strokeDasharray="20 40" opacity="0.3" className="animate-pulse" />
+    </svg>
+  </div>
+);
 
 // --- UI COMPONENTS ---
 
-// HoloDataPanel - now imported from ./components/HoloDataPanel.jsx
+const HoloDataPanel = ({ title, subtitle, bgText, icon: Icon, children, color = "cyan" }) => {
+  const themeColor = color === 'cyan' ? '#06b6d4' : '#a855f7';
+
+  return (
+    <div className="relative group h-full pt-4 pl-4">
+      <div
+        className="absolute inset-0 border-2 opacity-30 transform transition-transform duration-500 group-hover:translate-x-2 group-hover:translate-y-2"
+        style={{ borderColor: themeColor, clipPath: 'polygon(0 0, 100% 0, 100% 85%, 90% 100%, 0 100%)' }}
+      ></div>
+
+      <div className="relative h-full bg-slate-900/90 backdrop-blur-xl border border-white/10 overflow-hidden flex flex-col"
+        style={{ clipPath: 'polygon(0 0, 100% 0, 100% 85%, 90% 100%, 0 100%)' }}>
+
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
+          <div className="absolute opacity-10 transform group-hover:scale-110 transition-transform duration-700 ease-out">
+            <Icon size={240} strokeWidth={0.5} color={themeColor} />
+          </div>
+
+          <div className="absolute z-0 flex items-center justify-center w-full">
+            <span
+              className="text-[5rem] font-black font-tech tracking-widest opacity-10 select-none"
+              style={{
+                WebkitTextStroke: `2px ${themeColor}`,
+                color: 'transparent'
+              }}
+            >
+              {bgText || subtitle.split('_')[0]}
+            </span>
+          </div>
+
+          <div className="absolute w-[120%] h-[1px] bg-white/5 rotate-45"></div>
+          <div className="absolute w-[120%] h-[1px] bg-white/5 -rotate-45"></div>
+          <Crosshair size={300} strokeWidth={0.5} className="text-white/5 absolute" />
+        </div>
+
+        <div className="relative z-10 p-8 flex flex-col h-full">
+          <div className="mb-6 relative flex items-start justify-between">
+            <div>
+              <h3 className="text-2xl font-black text-white tracking-wide flex items-center gap-3">
+                <span className="w-3 h-3 rotate-45" style={{ backgroundColor: themeColor }}></span>
+                {title}
+              </h3>
+              <div className="mt-1 flex items-center gap-2">
+                <span className="h-px w-8 bg-slate-500"></span>
+                <span className="text-xs font-mono tracking-[0.2em] uppercase" style={{ color: themeColor }}>
+                  {subtitle}
+                </span>
+              </div>
+            </div>
+
+            <div className="text-right">
+              <div className="text-[10px] font-mono text-slate-500">SYS.VER.2.0</div>
+              <div className={`text-3xl font-black font-tech`} style={{ color: themeColor, opacity: 0.3 }}>
+                0{title === "成立背景" ? "1" : "2"}
+              </div>
+            </div>
+          </div>
+
+          <div className="text-slate-300 leading-relaxed text-sm font-medium relative bg-slate-950/40 p-4 border-l-2 border-white/10 rounded-r-lg backdrop-blur-sm flex-grow">
+            {children}
+          </div>
+
+          <div className="mt-6 flex justify-between items-end opacity-50">
+            <div className="flex gap-1">
+              {[...Array(4)].map((_, i) => <div key={i} className="w-1 h-3 bg-slate-600 skew-x-[-20deg]"></div>)}
+            </div>
+            <Hash size={16} color={themeColor} />
+          </div>
+        </div>
+
+        <div className="absolute inset-0 border pointer-events-none transition-colors duration-300 group-hover:border-white/20 border-white/5"></div>
+      </div>
+    </div>
+  );
+};
 
 const TechInfoCard = ({ title, icon: Icon, desc, color }) => {
   const borderColor = color === 'cyan' ? 'border-cyan-500' : color === 'purple' ? 'border-purple-500' : 'border-green-500';
@@ -141,9 +254,31 @@ const MinimalButton = ({ children, primary = false, className = "", onClick }) =
   <button onClick={onClick} className={`relative px-6 py-2 font-mono font-bold tracking-widest text-sm transition-all duration-300 border bg-transparent ${primary ? 'border-cyan-500 text-cyan-500 hover:bg-cyan-500 hover:text-black shadow-[0_0_10px_rgba(6,182,212,0.1)] hover:shadow-[0_0_20px_rgba(6,182,212,0.4)]' : 'border-slate-600 text-slate-400 hover:border-white hover:text-white hover:bg-white/5'} ${className}`}>{children}</button>
 );
 
-// BrokenSciFiButton - now imported from ./components/CyberButton.jsx
+const BrokenSciFiButton = ({ children, onClick, className = "" }) => (
+  <button onClick={onClick} className={`relative group font-black tracking-[0.3em] text-xl uppercase text-cyan-400 transition-all duration-100 ${className}`}>
+    <div className="absolute inset-0 bg-cyan-950/30 border border-cyan-500/50 clip-broken transition-all duration-100 group-hover:bg-cyan-500 group-hover:border-cyan-400 group-hover:text-black"></div>
+    <div className="absolute inset-0 bg-red-500/20 clip-glitch-1 opacity-0 group-hover:opacity-100 group-hover:animate-glitch-1 pointer-events-none"></div>
+    <div className="absolute inset-0 bg-blue-500/20 clip-glitch-2 opacity-0 group-hover:opacity-100 group-hover:animate-glitch-2 pointer-events-none"></div>
+    <div className="absolute inset-0 border border-white/0 group-hover:border-white/80 group-hover:animate-flicker-border pointer-events-none"></div>
+    <span className="relative z-10 flex items-center gap-3 group-hover:text-black group-hover:animate-text-shake"><span className="text-xs bg-cyan-500 text-black px-1 animate-pulse mr-2">///</span>{children}</span>
+    <div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-cyan-500 group-hover:border-white"></div>
+    <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-cyan-500 group-hover:border-white"></div>
+  </button>
+);
 
-// CyberButton - now imported from ./components/CyberButton.jsx
+const CyberButton = ({ children, primary = false, className = "", onClick }) => (
+  <button onClick={onClick} className={`relative group px-8 py-4 font-bold tracking-widest text-sm transition-all duration-300 ${className} cyber-btn`}>
+    <div className={`absolute inset-0 cyber-btn-bg ${primary ? 'cyber-btn-primary-bg' : 'cyber-btn-secondary-bg'}`}></div>
+    <div className={`absolute inset-0 cyber-btn-border ${primary ? 'cyber-btn-primary-border' : 'cyber-btn-secondary-border'}`}></div>
+    <div className="absolute inset-0 cyber-btn-glitch"></div>
+    <div className="absolute inset-0 cyber-btn-scanline"></div>
+    <span className={`relative z-10 flex items-center gap-2 ${primary ? 'text-cyan-950 group-hover:text-cyan-950' : 'text-cyan-400 group-hover:text-cyan-300'}`}>{children}</span>
+    <div className={`absolute top-0 left-0 w-2 h-2 cyber-btn-corner ${primary ? 'bg-cyan-950' : 'bg-cyan-400'}`}></div>
+    <div className={`absolute top-0 right-0 w-2 h-2 cyber-btn-corner ${primary ? 'bg-cyan-950' : 'bg-cyan-400'}`}></div>
+    <div className={`absolute bottom-0 left-0 w-2 h-2 cyber-btn-corner ${primary ? 'bg-cyan-950' : 'bg-cyan-400'}`}></div>
+    <div className={`absolute bottom-0 right-0 w-2 h-2 cyber-btn-corner ${primary ? 'bg-cyan-950' : 'bg-cyan-400'}`}></div>
+  </button>
+);
 
 const TypewriterText = ({ text, speed = 50, startDelay = 0, className = "" }) => {
   const [displayedText, setDisplayedText] = useState('');
@@ -170,11 +305,219 @@ const TypewriterText = ({ text, speed = 50, startDelay = 0, className = "" }) =>
   return (<span className={className}>{displayedText}<span className="animate-pulse inline-block w-2 h-[1em] bg-cyan-400 align-middle ml-1 shadow-[0_0_10px_cyan]"></span></span>);
 };
 
-// FAQItem - now imported from ./components/FAQItem.jsx
+const FAQItem = ({ question, answer, index }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  return (
+    <div className="relative border border-slate-800 bg-slate-900/30 overflow-hidden group hover:border-cyan-500/50 transition-all duration-500 mb-4">
+      {/* Decorative corner accents */}
+      <div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+      <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
 
-// EventCarousel - now imported from ./components/EventCarousel.jsx
+      {/* Scan line effect */}
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-500/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-out pointer-events-none"></div>
 
-// AnimatedSection - now imported from ./components/AnimatedSection.jsx
+      {/* Glow effect on hover */}
+      <div className="absolute inset-0 bg-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
+
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between p-5 text-left relative z-10"
+      >
+        <div className="flex items-center gap-4">
+          <span className="font-mono text-xs text-cyan-500 opacity-60 group-hover:opacity-100 transition-opacity">
+            Q_0{index + 1}
+          </span>
+          <span className={`font-bold text-slate-200 group-hover:text-cyan-400 transition-colors duration-300 ${isOpen ? 'text-cyan-400' : ''}`}>
+            {question}
+          </span>
+        </div>
+        <ChevronDown
+          className={`text-slate-500 transition-all duration-500 ${isOpen ? 'rotate-180 text-cyan-500' : 'group-hover:text-cyan-400'}`}
+          size={20}
+        />
+      </button>
+
+      {/* Answer section with smooth height transition */}
+      <div
+        className={`overflow-hidden transition-all duration-700 ease-in-out ${isOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}
+      >
+        <div className="p-5 pt-0 pl-12 text-slate-400 leading-relaxed border-t border-slate-800/50 font-light text-sm relative">
+          {/* Response header with pulsing indicator */}
+          <div className="mb-2 text-[10px] font-mono text-cyan-700 flex items-center gap-2">
+            <Terminal size={10} />
+            <span>RESPONSE:</span>
+            <span className={`w-1.5 h-1.5 bg-cyan-500 rounded-full ${isOpen ? 'animate-pulse' : ''}`}></span>
+          </div>
+
+          {/* Answer text with fade-in animation */}
+          <div className={`transition-opacity duration-500 delay-200 ${isOpen ? 'opacity-100' : 'opacity-0'}`}>
+            {answer}
+          </div>
+
+          {/* Decorative line */}
+          <div className={`mt-3 h-px bg-gradient-to-r from-cyan-500/50 via-cyan-500/20 to-transparent transition-all duration-700 ${isOpen ? 'w-full' : 'w-0'}`}></div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const EventCarousel = () => {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const timerRef = useRef(null);
+
+  const events = [
+    {
+      id: 1,
+      title: "NextWave: AI法創黑客松",
+      type: "RECRUITING",
+      status: "全面徵件中",
+      location: "線上+實體",
+      time: "2025.09.03",
+      image: "/nextwave.jpg",
+      color: "cyan",
+      link: "https://aiscuclub.github.io/NEXTWAVE/"
+    },
+    {
+      id: 2,
+      title: "AWS企業參訪",
+      type: "UPCOMING",
+      status: "開放報名",
+      location: "台北微風南山辦公室",
+      time: "2024.12.20",
+      image: "/aws.png",
+      color: "purple"
+    },
+  ];
+
+  const resetTimer = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    timerRef.current = setInterval(() => {
+      setActiveIndex((prev) => (prev + 1) % events.length);
+    }, 5000);
+  };
+
+  useEffect(() => {
+    resetTimer();
+    return () => clearInterval(timerRef.current);
+  }, [events.length]);
+
+  const handlePrev = () => {
+    setActiveIndex((prev) => (prev - 1 + events.length) % events.length);
+    resetTimer();
+  };
+
+  const handleNext = () => {
+    setActiveIndex((prev) => (prev + 1) % events.length);
+    resetTimer();
+  };
+
+  return (
+    <div className="w-full max-w-5xl mb-12 relative group mx-auto">
+      {/* ADDED mx-auto for Center Alignment */}
+      <div className="relative overflow-hidden rounded-none bg-slate-900/80 border border-white/10 backdrop-blur-md">
+        <div
+          className="flex transition-transform duration-700 ease-in-out will-change-transform"
+          style={{ transform: `translateX(-${activeIndex * 100}%)` }}
+        >
+          {events.map((event, index) => {
+            const isCyan = event.color === 'cyan';
+            const isPurple = event.color === 'purple';
+            const textColor = isCyan ? 'text-cyan-400' : isPurple ? 'text-purple-400' : 'text-green-400';
+            const iconColor = isCyan ? 'text-cyan-500' : isPurple ? 'text-purple-500' : 'text-green-500';
+            const bgTheme = isCyan ? 'bg-cyan-500' : isPurple ? 'bg-purple-500' : 'bg-green-500';
+            const borderColor = isCyan ? 'group-hover:border-cyan-500/30' : isPurple ? 'group-hover:border-purple-500/30' : 'group-hover:border-green-500/30';
+
+            return (
+              <div key={event.id} className="w-full flex-shrink-0">
+                <div
+                  className={`relative h-64 md:h-48 flex flex-col md:flex-row transition-colors duration-500 border-transparent border ${borderColor} ${event.link ? 'cursor-pointer' : ''}`}
+                  onClick={() => event.link && window.open(event.link, '_blank')}
+                >
+                  <div className="w-full md:w-1/3 h-full relative overflow-hidden">
+                    <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${event.image})` }}></div>
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent to-slate-900/90 md:bg-gradient-to-r md:from-transparent md:to-slate-900/90"></div>
+                    <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay"></div>
+                    <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur text-[10px] font-mono text-white border border-white/20">
+                      IMG_SRC: {event.id}
+                    </div>
+                  </div>
+                  <div className="flex-1 p-6 flex flex-col justify-center relative z-10">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="relative flex h-2 w-2">
+                          <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${bgTheme} opacity-75`}></span>
+                          <span className={`relative inline-flex rounded-full h-2 w-2 ${bgTheme}`}></span>
+                        </span>
+                        <span className={`font-mono text-xs font-bold tracking-widest ${textColor}`}>
+                          {event.type}
+                        </span>
+                      </div>
+                      <div className="font-mono text-slate-500 text-xs">
+                        0{index + 1} / 0{events.length}
+                      </div>
+                    </div>
+                    <h3 className="text-2xl font-black text-white mb-4 tracking-wide">
+                      {event.title}
+                    </h3>
+                    <div className="grid grid-cols-2 gap-y-2 text-sm font-mono text-slate-400">
+                      <div className="flex items-center gap-2">
+                        <MapPin size={14} className={iconColor} />
+                        {event.location}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Clock size={14} className={iconColor} />
+                        {event.time}
+                      </div>
+                      <div className="flex items-center gap-2 col-span-2">
+                        <Radio size={14} className={iconColor} />
+                        <span className="text-white font-bold">{event.status}</span>
+                      </div>
+                    </div>
+                    <div className="absolute bottom-0 left-0 h-[2px] bg-slate-800 w-full">
+                      {index === activeIndex && (
+                        <div className={`h-full ${bgTheme} animate-[load_5s_linear_forwards]`}></div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <button onClick={handlePrev} className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/50 border border-white/20 text-white hover:bg-cyan-900/80 hover:border-cyan-400 flex items-center justify-center backdrop-blur-md transition-all rounded-full group/btn z-20"><ChevronLeft size={20} /></button>
+        <button onClick={handleNext} className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/50 border border-white/20 text-white hover:bg-cyan-900/80 hover:border-cyan-400 flex items-center justify-center backdrop-blur-md transition-all rounded-full group/btn z-20"><ChevronRight size={20} /></button>
+      </div>
+      <div className="flex justify-center mt-4 space-x-2">
+        {events.map((_, index) => (
+          <button
+            key={index}
+            onClick={() => { setActiveIndex(index); resetTimer(); }}
+            className={`h-2 w-2 rounded-full transition-all duration-300 ${index === activeIndex ? 'w-6 bg-cyan-400 shadow-[0_0_8px_cyan]' : 'bg-slate-700 hover:bg-slate-400'
+              }`}
+          ></button>
+        ))}
+      </div>
+      <style>{`@keyframes load { 0% { width: 0; } 100% { width: 100%; } }`}</style>
+    </div>
+  );
+};
+
+const AnimatedSection = ({ children, className = "", delay = 0 }) => {
+  const [ref, isVisible] = useScrollReveal();
+  return (
+    <div
+      ref={ref}
+      className={`transition-all duration-700 ease-out transform ${className} ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+        }`}
+      style={{ transitionDelay: `${delay}ms` }}
+    >
+      {children}
+    </div>
+  );
+};
 
 // --- PAGE CONTENT COMPONENTS ---
 
@@ -203,13 +546,13 @@ const EventsPage = ({ setPage }) => (
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { img: "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=600&q=80", title: "如何100秒完成財報、判決與文獻分析講座", date: "2024.11", link: "https://discord.gg/85KxAZHA" },
+            { img: "https://images.unsplash.com/photo-1542831371-29b0f74f9713?auto=format&fit=crop&w=600&q=80", title: "Python 進階班結訓", date: "2023.05" },
+            { img: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=600&q=80", title: "資料結構駭客松", date: "2022.12" },
+            { img: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=600&q=80", title: "雲端服務入門工作坊", date: "2023.10" },
+            { img: "https://images.unsplash.com/photo-1549682522-d7b6b19a97d9?auto=format&fit=crop&w=600&q=80", title: "AI 倫理主題沙龍", date: "2023.11" },
           ].map((item, idx) => (
             <AnimatedSection key={idx} delay={idx * 100}>
-              <div
-                className="relative group overflow-hidden border border-white/10 bg-black/50 hover:shadow-cyan-500/50 hover:shadow-xl transition-all duration-300 cursor-pointer"
-                onClick={() => item.link && window.open(item.link, '_blank')}
-              >
+              <div className="relative group overflow-hidden border border-white/10 bg-black/50 hover:shadow-cyan-500/50 hover:shadow-xl transition-all duration-300">
                 <div className="h-40 overflow-hidden">
                   <img
                     src={item.img}
@@ -221,11 +564,6 @@ const EventsPage = ({ setPage }) => (
                 <div className="p-4 relative border-t border-white/10">
                   <div className="text-[10px] font-mono text-slate-500">{item.date}</div>
                   <h4 className="text-sm font-bold text-white mt-1 group-hover:text-cyan-400 transition-colors">{item.title}</h4>
-                  {item.link && (
-                    <div className="text-[10px] text-cyan-400 mt-2 font-mono opacity-0 group-hover:opacity-100 transition-opacity">
-                      點擊加入 Discord 討論 →
-                    </div>
-                  )}
                 </div>
                 <div className="absolute inset-0 bg-black/30 group-hover:bg-black/0 transition-colors duration-500"></div>
                 <div className="absolute top-0 left-0 w-full h-1 bg-cyan-700 transform scale-x-0 origin-left group-hover:scale-x-100 transition-transform duration-300"></div>
@@ -416,7 +754,7 @@ const FAQPage = ({ setPage }) => (
       <div className="max-w-3xl mx-auto">
         {[
           { q: "參加社團需要有程式基礎嗎？", a: "完全不需要！我們的課程設計從零開始，會有學長姐手把手帶你入門 Python 與 AI 基礎概念。" },
-          { q: "社費是多少？", a: "本學期社費為 NT$1,000，其中 NT$500 為社費、NT$500 為保證金。保證金將於本學期 出席達成規定比例後，由社團於期末社大統一退還。" },
+          { q: "社費是多少？", a: "本學期社費為 NT$ 500，包含所有課程講義、工作坊材料與期末披薩派對費用。" },
           { q: "非資工系的學生可以加入嗎？", a: "當然可以！AI 是跨領域的工具，我們非常歡迎來自人文、商管、藝術等不同背景的同學加入，激盪出更多火花。" },
           { q: "社課時間與地點？", a: "每週三晚上 19:00 - 21:00，地點位於綜合大樓 302 教室。若有變動會提前在 Discord 群組公告。" },
           { q: "需要自備電腦嗎？", a: "建議自備筆電（Windows/Mac/Linux 皆可），以便在課堂上進行實作練習。" }
@@ -577,233 +915,76 @@ const HomePage = ({ setPage }) => (
   </>
 );
 
-// Operator Card Component for Team Section
-const OperatorCard = ({ name, role, specialty, color, image }) => {
-  const borderColor = color === 'cyan' ? 'border-cyan-500' : color === 'purple' ? 'border-purple-500' : color === 'orange' ? 'border-orange-500' : 'border-green-500';
-  const textColor = color === 'cyan' ? 'text-cyan-400' : color === 'purple' ? 'text-purple-400' : color === 'orange' ? 'text-orange-400' : 'text-green-400';
-
-  return (
-    <div className="relative group bg-slate-900/60 border border-white/10 overflow-hidden transition-all duration-300 hover:border-white/30 hover:-translate-y-2 hover:shadow-2xl">
-      <div className="h-64 overflow-hidden relative">
-        <img src={image} alt={name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" onError={(e) => { e.target.src = "https://placehold.co/400x400/1e293b/a5f3fc?text=" + name.split(' ')[0]; }} />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/50 to-transparent"></div>
-        <div className={`absolute top-4 left-4 px-3 py-1 ${borderColor} border-2 bg-black/60 backdrop-blur-sm`}>
-          <div className={`text-xs font-mono font-bold ${textColor}`}>{specialty}</div>
-        </div>
-      </div>
-      <div className="p-6 relative z-10">
-        <h4 className="text-xl font-black text-white mb-1">{name}</h4>
-        <div className={`text-sm font-mono ${textColor} tracking-wider`}>{role}</div>
-      </div>
-    </div>
-  );
-};
-
-// 2. About Page (Updated with All 7 Sections)
+// 2. About Page
 const AboutPage = ({ setPage }) => (
   <section className="py-32 relative font-main bg-[#0a0b10] min-h-screen">
     <div className="container mx-auto px-8 relative z-10">
-
-      {/* 1. Header */}
       <AnimatedSection>
-        <div className="flex flex-col items-center mb-24">
-          <div className="text-cyan-500 font-bold tracking-widest mb-2 text-sm">// SYSTEM ARCHITECTURE</div>
-          <h2 className="text-4xl md:text-6xl font-black text-white text-center">關於 <span className="text-cyan-400">我們</span></h2>
+        <div className="flex flex-col items-center mb-16">
+          <div className="text-cyan-500 font-bold tracking-widest mb-2 text-sm">// SYSTEM MODULES</div>
+          <h2 className="text-4xl md:text-5xl font-black text-white text-center">關於 <span className="text-cyan-400">我們</span></h2>
           <div className="w-24 h-1 bg-gradient-to-r from-transparent via-cyan-500 to-transparent mt-6"></div>
         </div>
       </AnimatedSection>
 
-      {/* 2. Mission & Story - Split Layout */}
-      <div className="grid lg:grid-cols-2 gap-16 mb-32 items-center">
-        <AnimatedSection delay={100}>
-          <HoloDataPanel
-            title="核心使命"
-            subtitle="MISSION_PROTOCOL"
-            bgText="MISSION"
-            icon={Target}
-            color="cyan"
-          >
-            <p className="text-base leading-relaxed mb-4 text-slate-300">
-              AISCU 的使命是 <strong className="text-cyan-400">降低 AI 學習門檻</strong>,讓每一位對科技充滿熱情的學生,無論背景如何,都能掌握改變未來的鑰匙。
-            </p>
-            <p className="text-base leading-relaxed text-slate-300">
-              我們透過「做中學 (Learning by Doing)」的模式,將艱澀的理論轉化為有趣的實作專案。在這裡,程式碼不僅是文字,更是解決真實問題的武器。
-            </p>
-          </HoloDataPanel>
-        </AnimatedSection>
-
-        <AnimatedSection delay={200}>
-          <HoloDataPanel
-            title="我們的故事"
-            subtitle="ORIGIN_LOG"
-            bgText="STORY"
-            icon={History}
-            color="purple"
-          >
-            <p className="text-base leading-relaxed mb-4 text-slate-300">
-              2024 年,幾位對 AI 充滿狂熱的學生在圖書館的角落,感嘆於理論與實作間的巨大鴻溝。為了打破這道牆,**AISCU** 誕生了。
-            </p>
-            <p className="text-base leading-relaxed text-slate-300">
-              從最初的讀書會,到如今擁有超過百名活躍成員的技術社群,我們始終堅持「打破系所藩籬、專注實戰開發」的初衷,成為校園內推動技術創新的先鋒部隊。
-            </p>
-          </HoloDataPanel>
-        </AnimatedSection>
+      <div className="grid md:grid-cols-3 gap-8 mb-16">
+        {[
+          {
+            title: "CORE: MISSION",
+            icon: Target,
+            desc: "我們的使命是降低 AI 學習門檻，讓每一位學生都能掌握未來科技。透過實作與專案，將理論轉化為解決問題的能力。",
+            color: "cyan"
+          },
+          {
+            title: "MODULE: CONNECT",
+            icon: Share2,
+            desc: "連結校園與產業界的橋樑。我們定期舉辦企業參訪、職涯講座，並建立跨校系的開發者社群網絡。",
+            color: "purple"
+          },
+          {
+            title: "OUTPUT: INNOVATE",
+            icon: Lightbulb,
+            desc: "鼓勵創新思維與黑客精神。這裡沒有標準答案，只有無限的可能性。我們提供資源，讓你實現瘋狂的點子。",
+            color: "green"
+          }
+        ].map((item, idx) => (
+          <AnimatedSection key={idx} delay={idx * 100}>
+            <TechInfoCard
+              title={item.title}
+              icon={item.icon}
+              desc={item.desc}
+              color={item.color}
+            />
+          </AnimatedSection>
+        ))}
       </div>
 
-      {/* 3. What We Do - Cards */}
-      <div className="mb-32">
-        <AnimatedSection>
-          <div className="flex items-center mb-12">
-            <div className="w-1 h-12 bg-cyan-500 mr-6"></div>
-            <div>
-              <div className="text-cyan-500 text-xs font-bold tracking-widest mb-1">MODULES</div>
-              <h3 className="text-3xl font-black text-white">我們在做什麼?</h3>
-            </div>
-          </div>
-        </AnimatedSection>
-
-        <div className="grid md:grid-cols-3 gap-8">
+      <AnimatedSection delay={400}>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 py-12 border-t border-white/10">
           {[
-            {
-              title: "實戰課程",
-              icon: Layers,
-              desc: "從 Python 基礎到深度學習模型訓練,我們提供一系列循序漸進的技術課程,強調動手實作,拒絕紙上談兵。",
-              color: "cyan"
-            },
-            {
-              title: "專案開發",
-              icon: Code,
-              desc: "組隊參與黑客松或開發解決校園問題的 AI 應用。這裡是將瘋狂點子變為現實的實驗室,你的創意將在此落地。",
-              color: "purple"
-            },
-            {
-              title: "產業連結",
-              icon: Building2,
-              desc: "定期舉辦企業參訪與職涯講座,邀請業界前輩分享第一手經驗,幫助成員提前接軌職場,建立人脈網絡。",
-              color: "green"
-            }
-          ].map((item, idx) => (
-            <AnimatedSection key={idx} delay={idx * 100}>
-              <TechInfoCard
-                title={item.title}
-                icon={item.icon}
-                desc={item.desc}
-                color={item.color}
-              />
-            </AnimatedSection>
-          ))}
-        </div>
-      </div>
-
-      {/* 4. Why We Exist (Value) - Benefits Grid */}
-      <div className="mb-32 relative">
-        <div className="absolute inset-0 bg-gradient-to-r from-purple-900/10 to-transparent rounded-3xl pointer-events-none"></div>
-        <AnimatedSection>
-          <div className="text-center mb-16 pt-12">
-            <h3 className="text-3xl font-black text-white mb-4">我們的價值</h3>
-            <p className="text-slate-400">加入 AISCU,你將獲得的不僅僅是技術</p>
-          </div>
-        </AnimatedSection>
-
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[
-            { icon: Brain, title: "硬核技能", text: "掌握 Python 與 AI 工具" },
-            { icon: Users, title: "跨域人脈", text: "認識不同科系的夥伴" },
-            { icon: Trophy, title: "競賽履歷", text: "豐富你的求職作品集" },
-            { icon: Rocket, title: "視野拓展", text: "接觸最前沿科技趨勢" }
-          ].map((val, idx) => (
-            <AnimatedSection key={idx} delay={idx * 50}>
-              <div className="bg-slate-900/60 border border-white/10 p-8 hover:border-cyan-500/50 transition-all group text-center h-full rounded-lg backdrop-blur-sm hover:-translate-y-2">
-                <div className="w-16 h-16 rounded-full bg-white/5 mx-auto flex items-center justify-center mb-6 group-hover:scale-110 group-hover:bg-cyan-500/20 transition-all">
-                  <val.icon className="text-white group-hover:text-cyan-400" size={32} />
-                </div>
-                <h4 className="text-xl font-bold text-white mb-3">{val.title}</h4>
-                <p className="text-slate-400 text-sm">{val.text}</p>
+            { label: "活躍社團成員", value: "128+", icon: Users, color: "text-cyan-400" },
+            { label: "完成實作專案", value: "42", icon: Code, color: "text-purple-400" },
+            { label: "企業參訪 & 工作坊", value: "15", icon: Zap, color: "text-yellow-400" },
+          ].map((stat, idx) => (
+            <div key={idx} className="flex items-center justify-center gap-6 group cursor-default">
+              <div className={`p-4 bg-white/5 border border-white/10 transform rotate-45 transition-all duration-300 group-hover:bg-white/10 group-hover:scale-110 group-hover:border-${stat.color.split('-')[1]}-500`}>
+                <stat.icon className={`${stat.color} transform -rotate-45`} size={28} />
               </div>
-            </AnimatedSection>
+              <div>
+                <div className="text-4xl font-black text-white font-tech">{stat.value}</div>
+                <div className="text-sm font-bold text-slate-400 group-hover:text-white transition-colors">{stat.label}</div>
+              </div>
+            </div>
           ))}
-        </div>
-      </div>
-
-      {/* 5. Team (Operator Cards) */}
-      <div className="mb-32">
-        <AnimatedSection>
-          <div className="flex items-center mb-12">
-            <div className="w-1 h-12 bg-purple-500 mr-6"></div>
-            <div>
-              <div className="text-purple-500 text-xs font-bold tracking-widest mb-1">LEADERSHIP</div>
-              <h3 className="text-3xl font-black text-white">核心團隊</h3>
-            </div>
-          </div>
-        </AnimatedSection>
-
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[
-            { name: "Alex Chen", role: "President", spec: "System Arch", color: "cyan", img: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=400&q=80" },
-            { name: "Sarah Wu", role: "Vice President", spec: "Data Science", color: "purple", img: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=400&q=80" },
-            { name: "Mike Lin", role: "Tech Lead", spec: "LLM Dev", color: "orange", img: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80" },
-            { name: "Jenny Su", role: "Event Lead", spec: "Design Thinking", color: "green", img: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80" },
-          ].map((member, idx) => (
-            <AnimatedSection key={idx} delay={idx * 100}>
-              <OperatorCard
-                name={member.name}
-                role={member.role}
-                specialty={member.spec}
-                color={member.color}
-                image={member.img}
-              />
-            </AnimatedSection>
-          ))}
-        </div>
-      </div>
-
-      {/* 6. Achievements (Stats) */}
-      <div className="mb-32">
-        <AnimatedSection delay={200}>
-          <div className="bg-slate-900/50 border-y border-white/10 py-16">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-12 text-center">
-              {[
-                { label: "活躍社團成員", value: "128+", icon: Users, color: "text-cyan-400" },
-                { label: "完成實作專案", value: "42", icon: Code, color: "text-purple-400" },
-                { label: "企業參訪 & 工作坊", value: "15", icon: Zap, color: "text-yellow-400" },
-              ].map((stat, idx) => (
-                <div key={idx} className="group">
-                  <div className="flex justify-center mb-4">
-                    <stat.icon className={`${stat.color} transform group-hover:scale-125 transition-transform duration-300`} size={48} />
-                  </div>
-                  <div className="text-5xl font-black text-white font-tech mb-2">{stat.value}</div>
-                  <div className="text-sm font-bold text-slate-400 tracking-widest uppercase">{stat.label}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </AnimatedSection>
-      </div>
-
-      {/* 7. Join Us CTA */}
-      <AnimatedSection>
-        <div className="text-center pb-20">
-          <div className="inline-block p-1 rounded-full bg-gradient-to-r from-cyan-500 via-purple-500 to-cyan-500 mb-8">
-            <div className="bg-black rounded-full px-8 py-2 text-white font-bold text-sm tracking-wider">
-              RECRUITMENT_STATUS: <span className="text-green-400 animate-pulse">ACTIVE</span>
-            </div>
-          </div>
-          <h3 className="text-4xl font-black text-white mb-8">準備好加入我們了嗎?</h3>
-          <BrokenSciFiButton onClick={() => setPage('join')} className="px-16 py-6 text-xl inline-block">
-            加入 AISCU <ArrowRight size={24} className="inline ml-2" />
-          </BrokenSciFiButton>
         </div>
       </AnimatedSection>
-
     </div>
   </section>
 );
 
 // 3. Curriculum Page
 const CurriculumPage = ({ setPage, onBuyTicket }) => {
-  const navigate = useNavigate();
   const events = [
-    { id: "genai-workshop", fullDate: "2024-12-15", date: "12/15 (日)", title: "GENERATIVE AI & LLM AGENTS", type: "工作坊", icon: Cpu, desc: "深入解析 LLM 原理，手把手建置 AI Agent。", color: "cyan" },
     { id: "01", fullDate: "2025-09-17", date: "09/17 (三)", title: "錢老師美育全校演講", type: "演講", icon: Mic, desc: "美育系列講座，開啟學期新篇章。", color: "cyan" },
     { id: "02", fullDate: "2025-09-26", date: "09/26 (五)", title: "期初社大暨競賽說明會", type: "社務", icon: Rocket, desc: "介紹社團運作模式與本學期重點競賽資訊。", color: "blue" },
     { id: "03", fullDate: "2025-10-01", date: "10/01 (三)", title: "AI 初體驗 - 人工智慧入門", type: "課程", icon: Brain, desc: "帶領新手快速認識 AI 的基礎概念與應用。", color: "purple" },
@@ -851,14 +1032,8 @@ const CurriculumPage = ({ setPage, onBuyTicket }) => {
           <div className="absolute left-4 top-0 bottom-0 w-px bg-gradient-to-b from-cyan-500/0 via-cyan-500/30 to-cyan-500/0"></div>
 
           {sortedEvents.map((event, idx) => {
-            const isExpired = new Date(event.fullDate) < new Date();
-
-            const colorMap = {
-              cyan: '#06b6d4', blue: '#3b82f6', purple: '#a855f7', pink: '#ec4899',
-              yellow: '#eab308', green: '#22c55e', orange: '#f97316', red: '#ef4444',
-              indigo: '#6366f1', teal: '#14b8a6', amber: '#f59e0b', sky: '#0ea5e9'
-            };
-            const themeColor = colorMap[event.color] || '#22d3ee';
+            const isExpired = new Date(event.fullDate) < today;
+            const themeColor = event.color === 'cyan' ? '#06b6d4' : event.color === 'purple' ? '#a855f7' : '#22d3ee';
             const textColor = `text-${event.color}-400`;
             const borderColor = `border-${event.color}-400`;
 
@@ -866,57 +1041,78 @@ const CurriculumPage = ({ setPage, onBuyTicket }) => {
               <AnimatedSection key={event.id} delay={idx * 50} className="mb-12 relative">
                 <div className={`flex items-start group pl-12 relative ${isExpired ? 'opacity-50 grayscale hover:grayscale-0 hover:opacity-100 transition-all duration-500' : ''}`}>
 
-                  {/* Timeline Node - Simplified */}
-                  <div className={`absolute left-4 top-6 w-2 h-2 rounded-full border-2 z-20 transform -translate-x-1/2 transition-all duration-300 ${isExpired ? 'border-slate-600 bg-slate-800' : 'border-cyan-500 bg-cyan-400 shadow-[0_0_8px_cyan]'}`}></div>
+                  {/* Timeline Node */}
+                  <div className={`absolute left-4 top-8 w-3 h-3 bg-[#0a0b10] border z-20 transform -translate-x-1/2 rotate-45 flex items-center justify-center transition-all duration-300 ${isExpired ? 'border-slate-600' : 'border-cyan-500 shadow-[0_0_10px_cyan]'}`}>
+                    <div className={`w-1 h-1 ${isExpired ? 'bg-slate-600' : 'bg-cyan-400'}`}></div>
+                  </div>
 
                   {/* Connector */}
-                  <div className={`absolute left-4 top-8 w-8 h-px ${isExpired ? 'bg-slate-700' : 'bg-cyan-500/30'}`}></div>
+                  <div className={`absolute left-4 top-10 w-8 h-px ${isExpired ? 'bg-slate-700' : 'bg-cyan-500/30'}`}></div>
 
-                  {/* Simplified Holo-Style Card */}
-                  <div
-                    className="relative group/card w-full pt-2 pl-2 cursor-pointer"
-                    onClick={() => navigate(`/course/${event.id}`)}
-                  >
-                    {/* Offset Border (Drift Animation on Hover) */}
+                  {/* Holo-Style Card */}
+                  <div className="relative group/card w-full pt-4 pl-4 perspective-1000">
+                    {/* Offset Border (Drift Animation) */}
                     <div
-                      className="absolute inset-0 border-2 opacity-20 transform transition-transform duration-500 ease-out group-hover/card:translate-x-2 group-hover/card:translate-y-2"
-                      style={{ borderColor: isExpired ? '#475569' : themeColor }}
+                      className="absolute inset-0 border-2 opacity-30 transform transition-transform duration-500 ease-out group-hover/card:translate-x-3 group-hover/card:translate-y-3"
+                      style={{ borderColor: isExpired ? '#475569' : themeColor, clipPath: 'polygon(0 0, 100% 0, 100% 85%, 90% 100%, 0 100%)' }}
                     ></div>
 
                     {/* Main Card Content */}
                     <div className={`
-                        relative h-full backdrop-blur-sm border overflow-hidden flex flex-col transition-all duration-300 ease-out
+                        relative h-full backdrop-blur-xl border overflow-hidden flex flex-col transition-all duration-300 ease-out
                         ${isExpired
                         ? 'bg-slate-900/40 border-slate-700/50'
-                        : 'bg-slate-800/50 border-white/15 hover:bg-slate-700/50 hover:border-white/30 hover:scale-[1.01] hover:shadow-[0_0_20px_rgba(6,182,212,0.1)]'
+                        : 'bg-slate-800/60 border-white/20 hover:bg-slate-700/60 hover:border-white/40 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(6,182,212,0.15)]'
                       }
-                      `}>
+                      `}
+                      style={{ clipPath: 'polygon(0 0, 100% 0, 100% 85%, 90% 100%, 0 100%)' }}>
 
-                      <div className="relative z-10 p-5 flex flex-col h-full">
-                        {/* Header - Simplified */}
-                        <div className="mb-3 relative">
-                          <h3 className={`text-lg font-bold tracking-wide flex items-center gap-2 ${isExpired ? 'text-slate-400' : 'text-white'}`}>
-                            <span className="w-1.5 h-1.5 rounded-sm transition-transform duration-300 group-hover/card:scale-110" style={{ backgroundColor: isExpired ? '#475569' : themeColor }}></span>
-                            {event.title}
-                          </h3>
-                          <div className="mt-1 flex items-center gap-2">
-                            <span className={`text-[10px] font-medium tracking-wide opacity-60 ${isExpired ? 'text-slate-500' : textColor}`}>
-                              {event.type}
-                            </span>
-                            <span className="text-[10px] font-mono opacity-40 text-slate-400">
-                              {event.date}
-                            </span>
+                      {/* Background Decor (Simplified) */}
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden opacity-30">
+                        <div className="absolute w-[150%] h-[1px] bg-white/5 rotate-45 transform translate-y-10"></div>
+                      </div>
+
+                      <div className="relative z-10 p-6 flex flex-col h-full">
+                        {/* Header */}
+                        <div className="mb-2 relative flex items-start justify-between">
+                          <div>
+                            <h3 className={`text-xl font-black tracking-wide flex items-center gap-3 ${isExpired ? 'text-slate-400' : 'text-white'}`}>
+                              <span className="w-2 h-2 rotate-45 transition-transform duration-500 group-hover/card:rotate-90" style={{ backgroundColor: isExpired ? '#475569' : themeColor }}></span>
+                              {event.title}
+                            </h3>
+                            <div className="mt-1 flex items-center gap-2">
+                              <span className={`text-[10px] font-medium tracking-wide opacity-70 ${isExpired ? 'text-slate-500' : textColor}`}>
+                                {event.type}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="text-right">
+                            <div className={`text-xl font-black font-tech transition-opacity duration-300 group-hover/card:opacity-80`} style={{ color: isExpired ? '#475569' : themeColor, opacity: 0.2 }}>
+                              {event.id}
+                            </div>
                           </div>
                         </div>
 
-                        {/* Body - Simplified */}
-                        <div className={`leading-relaxed text-sm font-medium pl-3 border-l-2 flex-grow transition-colors duration-300 ${isExpired ? 'text-slate-500 border-slate-700' : 'text-slate-300 border-white/10 group-hover/card:border-cyan-500/40'}`}>
+                        {/* Body */}
+                        <div className={`leading-relaxed text-sm font-medium relative pl-4 border-l-2 flex-grow transition-colors duration-300 ${isExpired ? 'text-slate-500 border-slate-700' : 'text-slate-300 border-white/10 group-hover/card:border-white/30'}`}>
+                          <div className="flex items-center gap-2 mb-1 font-mono text-[10px] opacity-60">
+                            {event.date}
+                          </div>
                           {event.desc}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="mt-4 flex justify-between items-end opacity-50">
+                          <div className="flex gap-1">
+                            {[...Array(3)].map((_, i) => <div key={i} className="w-1 h-2 bg-slate-600 skew-x-[-20deg]"></div>)}
+                          </div>
+                          <Hash size={14} color={isExpired ? '#475569' : themeColor} />
                         </div>
                       </div>
 
                       {/* Hover Border Effect */}
-                      <div className="absolute inset-0 border pointer-events-none transition-colors duration-300 group-hover/card:border-white/20 border-transparent"></div>
+                      <div className="absolute inset-0 border pointer-events-none transition-colors duration-300 group-hover/card:border-white/30 border-white/5"></div>
                     </div>
                   </div>
                 </div>
@@ -931,20 +1127,7 @@ const CurriculumPage = ({ setPage, onBuyTicket }) => {
 
 // --- MAIN APP ---
 
-const DiscordIcon = ({ size = 20, className }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    className={className}
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.419-2.1568 2.419zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.419-2.1568 2.419z" />
-  </svg>
-);
-
-const MainApp = () => {
+const App = () => {
   const [activePage, setActivePage] = useState('home');
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -970,7 +1153,6 @@ const MainApp = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Navigation handler 
   const handlePageChange = (page) => {
     setActivePage(page);
     setIsMenuOpen(false);
@@ -979,7 +1161,7 @@ const MainApp = () => {
 
   const handleBuyTicket = (event) => {
     setBookingEvent(event);
-    setActivePage('booking');
+    handlePageChange('booking');
   };
 
   const renderPage = () => {
@@ -1083,6 +1265,25 @@ const MainApp = () => {
         }
         .cyber-btn-primary-border { border-color: #a5f3fc; }
         .cyber-btn-secondary-border { border-color: #06b6d4; }
+        .cyber-btn:hover .cyber-btn-border { border-color: #fff; box-shadow: 0 0 15px rgba(255, 255, 255, 0.5), inset 0 0 15px rgba(255, 255, 255, 0.5); }
+        .cyber-btn-glitch {
+          background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+          top: 0; left: -100%; width: 50%; height: 100%; transition: left 0.5s ease-in-out; transform: skewX(-20deg); opacity: 0.5;
+        }
+        .cyber-btn:hover .cyber-btn-glitch { left: 120%; animation: cyber-btn-glitch-anim 0.6s infinite linear; }
+        @keyframes cyber-btn-glitch-anim {
+          0% { transform: skewX(-20deg) translateX(0); } 25% { transform: skewX(-20deg) translateX(5px); } 50% { transform: skewX(-20deg) translateX(-5px); } 75% { transform: skewX(-20deg) translateX(5px); } 100% { transform: skewX(-20deg) translateX(0); }
+        }
+        .cyber-btn-scanline {
+          background: linear-gradient(180deg, transparent, rgba(6, 182, 212, 0.3), transparent); top: -100%; left: 0; width: 100%; height: 20%; transition: top 0.5s ease-in-out; opacity: 0.3;
+        }
+        .cyber-btn:hover .cyber-btn-scanline { top: 120%; animation: cyber-btn-scanline-anim 1.5s infinite linear; }
+        @keyframes cyber-btn-scanline-anim { 0% { top: -100%; } 100% { top: 120%; } }
+        .cyber-btn-corner { clip-path: polygon(0 0, 100% 0, 0 100%); opacity: 0; transition: all 0.3s ease; }
+        .cyber-btn:hover .cyber-btn-corner { opacity: 1; box-shadow: 0 0 10px currentColor; }
+        .cyber-btn-corner:nth-child(6) { transform: rotate(90deg); }
+        .cyber-btn-corner:nth-child(7) { transform: rotate(180deg); }
+        .cyber-btn-corner:nth-child(8) { transform: rotate(270deg); }
       `}</style>
 
       {/* Background Layers (Global) */}
@@ -1133,8 +1334,7 @@ const MainApp = () => {
               <div className="ml-2 pl-6 border-l border-white/10 flex items-center gap-4">
                 <span className="font-tech text-lg text-cyan-500">{currentTime}</span>
                 <CyberButton primary onClick={() => handlePageChange('join_form')} className="px-6 py-2 text-xs">
-
-                  申請入社
+                  未申請入社
                 </CyberButton>
               </div>
             </div>
@@ -1175,7 +1375,7 @@ const MainApp = () => {
           <div className="grid md:grid-cols-4 gap-12 mb-12">
             <div className="col-span-2">
               <div className="flex items-center gap-2 mb-4 text-white font-black text-2xl">
-                <img src="/asc_logo.png" alt="AISCU Logo" className="w-10 h-10 object-contain opacity-80 mr-2 drop-shadow-[0_0_10px_rgba(6,182,212,0.8)]" />
+                <img src="/asc_logo.png" alt="asc_logo.png" className="w-10 h-10 object-contain opacity-80 mr-2 drop-shadow-[0_0_10px_rgba(6,182,212,0.8)]" />
                 AISCU
               </div>
               <p className="text-slate-500 text-sm max-w-xs leading-relaxed">
@@ -1198,8 +1398,7 @@ const MainApp = () => {
                 {[
                   { Icon: Github, href: "#" },
                   { Icon: Instagram, href: "https://www.instagram.com/ai.scu.club/" },
-                  { Icon: Facebook, href: "https://www.facebook.com/profile.php?id=61577297436819&notif_id=1763637390542900&notif_t=page_user_activity&ref=notif#" },
-                  { Icon: DiscordIcon, href: "https://discord.gg/85KxAZHA" }
+                  { Icon: Facebook, href: "https://www.facebook.com/profile.php?id=61577297436819&notif_id=1763637390542900&notif_t=page_user_activity&ref=notif#" }
                 ].map(({ Icon, href }, idx) => (
                   <a key={idx} href={href} target="_blank" rel="noopener noreferrer" className="w-10 h-10 flex items-center justify-center bg-white/5 border border-white/10 text-slate-500 hover:text-white hover:bg-cyan-600 hover:border-cyan-600 transition-all">
                     <Icon size={20} />
@@ -1221,13 +1420,4 @@ const MainApp = () => {
   );
 };
 
-export default function App() {
-  return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<MainApp />} />
-        <Route path="/course/:courseId" element={<CourseInfoPage />} />
-      </Routes>
-    </BrowserRouter>
-  );
-}
+export default App;
