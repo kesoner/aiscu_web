@@ -62,6 +62,8 @@ import { FateWheelBackground } from './components/FateWheelBackground';
 import { FAQItem } from './components/FAQItem';
 import { EventCarousel } from './components/EventCarousel';
 import CourseInfoPage from './pages/CourseInfoPage';
+import ClubTerminal from './components/ClubTerminal';
+import RagDebug from './components/RagDebug';
 
 // --- CUSTOM HOOKS & COMPONENTS (now imported from separate files) ---
 // Components extracted: useScrollReveal, AnimatedSection, FateWheelBackground, HoloDataPanel, CyberButton, BrokenSciFiButton, FAQItem, EventCarousel
@@ -1132,8 +1134,8 @@ const MainApp = () => {
               ))}
               <div className="ml-2 pl-6 border-l border-white/10 flex items-center gap-4">
                 <span className="font-tech text-lg text-cyan-500">{currentTime}</span>
-                <CyberButton primary onClick={() => handlePageChange('join_form')} className="px-6 py-2 text-xs">
 
+                <CyberButton primary onClick={() => handlePageChange('join_form')} className="px-6 py-2 text-xs">
                   申請入社
                 </CyberButton>
               </div>
@@ -1200,9 +1202,9 @@ const MainApp = () => {
                   { Icon: Instagram, href: "https://www.instagram.com/ai.scu.club/" },
                   { Icon: Facebook, href: "https://www.facebook.com/profile.php?id=61577297436819&notif_id=1763637390542900&notif_t=page_user_activity&ref=notif#" },
                   { Icon: DiscordIcon, href: "https://discord.gg/85KxAZHA" }
-                ].map(({ Icon, href }, idx) => (
+                ].map(({ Icon: LinkIcon, href }, idx) => (
                   <a key={idx} href={href} target="_blank" rel="noopener noreferrer" className="w-10 h-10 flex items-center justify-center bg-white/5 border border-white/10 text-slate-500 hover:text-white hover:bg-cyan-600 hover:border-cyan-600 transition-all">
-                    <Icon size={20} />
+                    <LinkIcon size={20} />
                   </a>
                 ))}
               </div>
@@ -1217,6 +1219,8 @@ const MainApp = () => {
           </div>
         </div>
       </footer>
+
+      <ClubTerminal />
     </div>
   );
 };
@@ -1227,6 +1231,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<MainApp />} />
         <Route path="/course/:courseId" element={<CourseInfoPage />} />
+        <Route path="/rag-debug" element={<RagDebug />} />
       </Routes>
     </BrowserRouter>
   );
