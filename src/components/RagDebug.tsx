@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { runAgenticRag } from '../../services/geminiService';
-import { ingestChunksToChroma, retrieveFromChroma } from '../../services/chromaService';
-import { simpleChunker } from '../../services/ragEngine';
+import { runAgenticRag } from '../services/geminiService';
+import { ingestChunksToChroma, retrieveFromChroma } from '../services/chromaService';
+import { simpleChunker } from '../services/ragEngine';
 
 const RagDebug = () => {
     const [kbText, setKbText] = useState<string>('The secret code is 12345. The capital of France is Paris. AI is the future.');

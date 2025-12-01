@@ -13,3 +13,17 @@ export interface AgentStep {
     message: string;
     source?: string;
 }
+
+export interface ChatMessage {
+    role: 'user' | 'model';
+    content: string;
+    timestamp: number;
+    relatedChunks?: string[];
+}
+
+export enum ProcessingStatus {
+    IDLE = 'IDLE',
+    PROCESSING = 'PROCESSING',
+    COMPLETED = 'COMPLETED',
+    ERROR = 'ERROR'
+}

@@ -27,9 +27,9 @@ import {
     UploadCloud,
     Loader
 } from 'lucide-react';
-import { runAgenticRag, processImportedFile, processWebUrl, checkApiKey } from '../../services/geminiService';
-import { ingestChunksToChroma, retrieveFromChroma } from '../../services/chromaService';
-import { simpleChunker } from '../../services/ragEngine';
+import { runAgenticRag, processImportedFile, processWebUrl, checkApiKey } from '../services/geminiService';
+import { ingestChunksToChroma, retrieveFromChroma } from '../services/chromaService';
+import { simpleChunker } from '../services/ragEngine';
 import { DocumentChunk } from '../types/rag';
 import ascLogo from '../assets/asc_logo.png'; // Import Logo
 

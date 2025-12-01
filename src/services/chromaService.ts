@@ -1,5 +1,5 @@
 import { getEmbeddings } from "./geminiService";
-import { DocumentChunk } from "../src/types/rag";
+import { DocumentChunk } from "../types/rag";
 
 // We no longer import ChromaClient directly here.
 // Instead, we fetch() to our own backend which talks to Chroma.

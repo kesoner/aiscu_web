@@ -64,6 +64,7 @@ import { EventCarousel } from './components/EventCarousel';
 import CourseInfoPage from './pages/CourseInfoPage';
 import ClubTerminal from './components/ClubTerminal';
 import RagDebug from './components/RagDebug';
+import ascLogo from './assets/asc_logo.png';
 
 // --- CUSTOM HOOKS & COMPONENTS (now imported from separate files) ---
 // Components extracted: useScrollReveal, AnimatedSection, FateWheelBackground, HoloDataPanel, CyberButton, BrokenSciFiButton, FAQItem, EventCarousel
@@ -1107,7 +1108,7 @@ const MainApp = () => {
 
                 <div className="relative w-full h-full flex items-center justify-center z-10 p-1">
                   <div className="w-10 h-10 relative">
-                    <img src="/asc_logo.png" alt="ASC Logo" className="w-full h-full object-contain drop-shadow-[0_0_10px_rgba(6,182,212,0.8)]" />
+                    <img src={ascLogo} alt="ASC Logo" className="w-full h-full object-contain drop-shadow-[0_0_10px_rgba(6,182,212,0.8)]" />
                   </div>
                 </div>
               </div>
@@ -1177,7 +1178,7 @@ const MainApp = () => {
           <div className="grid md:grid-cols-4 gap-12 mb-12">
             <div className="col-span-2">
               <div className="flex items-center gap-2 mb-4 text-white font-black text-2xl">
-                <img src="/asc_logo.png" alt="AISCU Logo" className="w-10 h-10 object-contain opacity-80 mr-2 drop-shadow-[0_0_10px_rgba(6,182,212,0.8)]" />
+                <img src={ascLogo} alt="AISCU Logo" className="w-10 h-10 object-contain opacity-80 mr-2 drop-shadow-[0_0_10px_rgba(6,182,212,0.8)]" />
                 AISCU
               </div>
               <p className="text-slate-500 text-sm max-w-xs leading-relaxed">

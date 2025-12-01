@@ -1,4 +1,4 @@
-import { DocumentChunk } from "../src/types/rag";
+import { DocumentChunk } from "../types/rag";
 
 /**
  * simpleChunker

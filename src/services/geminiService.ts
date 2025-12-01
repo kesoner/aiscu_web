@@ -1,6 +1,6 @@
 // geminiService.ts
 import { GoogleGenAI } from "@google/genai";
-import { DocumentChunk, AgentStep } from "../src/types/rag";
+import { DocumentChunk, AgentStep } from "../types/rag";
 
 // ----------------------------------------------------
 // INIT
