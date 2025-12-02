@@ -25,3 +25,6 @@ dist-ssr
 
 # Application submissions (contains sensitive data)
 applications/
+
+# Secrets
+.env
