@@ -66,6 +66,9 @@ import CourseInfoPage from './pages/CourseInfoPage';
 import ClubTerminal from './components/ClubTerminal';
 import RagDebug from './components/RagDebug';
 import ascLogo from './assets/asc_logo.png';
+import lunImg from './assets/Lun.jpg';
+import kesonerImg from './assets/Kesoner.jpeg';
+import davidImg from './assets/David_Hsu.jpeg';
 
 // --- CUSTOM HOOKS & COMPONENTS (now imported from separate files) ---
 // Components extracted: useScrollReveal, AnimatedSection, FateWheelBackground, HoloDataPanel, CyberButton, BrokenSciFiButton, FAQItem, EventCarousel
@@ -743,10 +746,10 @@ const AboutPage = ({ setPage }) => (
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
-            { name: "Lun", role: "社長", spec: "System Arch", color: "cyan", img: "/src/assets/Lun.jpg" },
+            { name: "Lun", role: "社長", spec: "System Arch", color: "cyan", img: lunImg },
             { name: "Mary", role: "副社長", spec: "Data Science", color: "purple", img: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=400&q=80" },
-            { name: "Kesoner", role: "教學兼財務長", spec: "LLM Dev", color: "orange", img: "/src/assets/Kesoner.jpeg" },
-            { name: "David Hsu", role: "指導老師兼顧問", spec: "Design Thinking", color: "green", img: "/src/assets/David_Hsu.jpeg" },
+            { name: "Kesoner", role: "教學兼財務長", spec: "LLM Dev", color: "orange", img: kesonerImg },
+            { name: "David Hsu", role: "指導老師兼顧問", spec: "Design Thinking", color: "green", img: davidImg },
           ].map((member, idx) => (
             <AnimatedSection key={idx} delay={idx * 100}>
               <OperatorCard
