@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import './App.css';
 import {
   Code,
   Users,
@@ -106,7 +107,7 @@ const TechInfoCard = ({ title, icon: Icon, desc, color }) => {
           </div>
         </div>
 
-        <h3 className="text-2xl font-black text-white mb-4 tracking-wide group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-slate-400 transition-all">
+        <h3 className="text-2xl font-black text-white mb-4 tracking-wide group-hover:text-cyan-400 transition-all">
           {title}
         </h3>
         <div className="h-px w-12 bg-slate-700 mb-4 group-hover:w-full group-hover:bg-gradient-to-r group-hover:from-white/50 group-hover:to-transparent transition-all duration-500"></div>
@@ -554,8 +555,8 @@ const HomePage = ({ setPage }) => (
               icon={History}
               color="cyan"
             >
-              <p className="mb-4">在 AI 浪潮席捲全球之際，我們觀察到傳統學術與業界實務間存在一道巨大的鴻溝。**AISCU** 於焉成立，旨在打破這個隔閡，成為一座專為學生打造的 **AI 實戰訓練場**。</p>
-              <p>我們堅信，學習 AI 不應只停留在教科書，而應是動手實作、親身參與專案的過程。從創立之初，社團就以 **專案導向學習 (Project-Based Learning)** 為核心，引導成員將最新的 AI 模型和框架應用於真實世界的挑戰中。</p>
+              <p className="mb-4">在 AI 浪潮席捲全球之際，我們觀察到傳統學術與業界實務間存在一道巨大的鴻溝。<strong>AISCU</strong> 於焉成立，旨在打破這個隔閡，成為一座專為學生打造的 <strong>AI 實戰訓練場</strong>。</p>
+              <p>我們堅信，學習 AI 不應只停留在教科書，而應是動手實作、親身參與專案的過程。從創立之初，社團就以 <strong>專案導向學習 (Project-Based Learning)</strong> 為核心，引導成員將最新的 AI 模型和框架應用於真實世界的挑戰中。</p>
             </HoloDataPanel>
           </AnimatedSection>
 
@@ -568,8 +569,8 @@ const HomePage = ({ setPage }) => (
               icon={Telescope}
               color="purple"
             >
-              <p className="mb-4">我們的願景是成為 **校園 AI 領域的技術燈塔**。我們不僅要培育出具備扎實技術的開發者，更要激發成員的 **跨域協作能力** 與 **黑客精神**。</p>
-              <p>未來，**AISCU** 將作為業界與學界間的交流樞紐，定期邀請頂尖企業專家分享經驗，並持續推動成員參與國際級的 AI 競賽。我們的最終目標是讓每一位成員都能在畢業前，擁有足以在國際舞台上競爭的 **個人技術組合 (Portfolio)**。</p>
+              <p className="mb-4">我們的願景是推動 AI 技術在各行各業的實際應用。不再流於空泛的口號，而是專注於如何用技術解決金融、美學、法律等領域的真實問題。</p>
+              <p>未來，<strong>AISCU</strong> 將直接對接產業需求，引入企業實戰專案。目標是讓每一位成員在畢業前，都擁有跨領域的 AI 導入經驗，以及一份經得起市場檢驗的 <strong>實戰作品集 (Portfolio)</strong>。</p>
             </HoloDataPanel>
           </AnimatedSection>
         </div>
@@ -644,10 +645,10 @@ const AboutPage = ({ setPage }) => (
             color="purple"
           >
             <p className="text-base leading-relaxed mb-4 text-slate-300">
-              2024 年,幾位對 AI 充滿狂熱的學生在圖書館的角落,感嘆於理論與實作間的巨大鴻溝。為了打破這道牆,**AISCU** 誕生了。
+              2025 年，一群對資訊與 AI 充滿熱情的學生，意識到技術快速更迭下，校園中仍缺乏能系統性學習與實作的場域，於是從小型技術工作坊開始，逐步凝聚社群能量。<strong>AISCU</strong> 誕生了。
             </p>
             <p className="text-base leading-relaxed text-slate-300">
-              從最初的讀書會,到如今擁有超過百名活躍成員的技術社群,我們始終堅持「打破系所藩籬、專注實戰開發」的初衷,成為校園內推動技術創新的先鋒部隊。
+              隨著實作規模擴大，我們進一步舉辦 AI 法創黑客松，並成立多個專案團隊，持續以「打破系所藩籬、專注實戰開發」為核心，推動校園技術實作文化。
             </p>
           </HoloDataPanel>
         </AnimatedSection>
@@ -665,7 +666,7 @@ const AboutPage = ({ setPage }) => (
           </div>
         </AnimatedSection>
 
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="modules-grid">
           {[
             {
               title: "實戰課程",
@@ -742,10 +743,10 @@ const AboutPage = ({ setPage }) => (
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
-            { name: "Alex Chen", role: "President", spec: "System Arch", color: "cyan", img: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=400&q=80" },
-            { name: "Sarah Wu", role: "Vice President", spec: "Data Science", color: "purple", img: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=400&q=80" },
-            { name: "Mike Lin", role: "Tech Lead", spec: "LLM Dev", color: "orange", img: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80" },
-            { name: "Jenny Su", role: "Event Lead", spec: "Design Thinking", color: "green", img: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80" },
+            { name: "Lun", role: "社長", spec: "System Arch", color: "cyan", img: "/src/assets/Lun.jpg" },
+            { name: "Mary", role: "副社長", spec: "Data Science", color: "purple", img: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=400&q=80" },
+            { name: "Kesoner", role: "教學兼財務長", spec: "LLM Dev", color: "orange", img: "/src/assets/Kesoner.jpeg" },
+            { name: "David Hsu", role: "指導老師兼顧問", spec: "Design Thinking", color: "green", img: "/src/assets/David_Hsu.jpeg" },
           ].map((member, idx) => (
             <AnimatedSection key={idx} delay={idx * 100}>
               <OperatorCard
@@ -766,9 +767,9 @@ const AboutPage = ({ setPage }) => (
           <div className="bg-slate-900/50 border-y border-white/10 py-16">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-12 text-center">
               {[
-                { label: "活躍社團成員", value: "128+", icon: Users, color: "text-cyan-400" },
-                { label: "完成實作專案", value: "42", icon: Code, color: "text-purple-400" },
-                { label: "企業參訪 & 工作坊", value: "15", icon: Zap, color: "text-yellow-400" },
+                { label: "活躍社團成員", value: "70+", icon: Users, color: "text-cyan-400" },
+                { label: "完成實作專案", value: "3", icon: Code, color: "text-purple-400" },
+                { label: "企業參訪 & 工作坊", value: "4", icon: Zap, color: "text-yellow-400" },
               ].map((stat, idx) => (
                 <div key={idx} className="group">
                   <div className="flex justify-center mb-4">
@@ -1009,7 +1010,7 @@ const MainApp = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0b10] text-slate-200 font-sans selection:bg-cyan-500 selection:text-black overflow-x-hidden relative">
+    <div className="min-h-screen bg-[#0a0b10] text-slate-200 font-sans overflow-x-hidden relative">
 
       {/* Custom Fonts & Styles */}
       <style>{`

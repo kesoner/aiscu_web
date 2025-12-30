@@ -4,7 +4,7 @@ export const FateWheelBackground = () => (
     <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-0 select-none">
         <svg
             viewBox="0 0 1000 1000"
-            className="w-[90vmin] h-[90vmin] md:w-[70vmin] md:h-[70vmin] opacity-20 animate-[spin_60s_linear_infinite]"
+            className="w-[150vmin] h-[150vmin] md:w-[120vmin] md:h-[120vmin] opacity-20 animate-[spin_60s_linear_infinite]"
         >
             <defs>
                 <linearGradient id="wheel-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
