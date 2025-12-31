@@ -749,7 +749,7 @@ const AboutPage = ({ setPage }) => (
             { name: "Lun", role: "社長", spec: "System Arch", color: "cyan", img: lunImg },
             { name: "Mary", role: "副社長", spec: "Data Science", color: "purple", img: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=400&q=80" },
             { name: "Kesoner", role: "教學兼財務長", spec: "LLM Dev", color: "orange", img: kesonerImg },
-            { name: "David Hsu", role: "指導老師兼顧問", spec: "Design Thinking", color: "green", img: davidImg },
+            { name: "David Hsu", role: "精神領袖", spec: "spiritual leader", color: "green", img: davidImg },
           ].map((member, idx) => (
             <AnimatedSection key={idx} delay={idx * 100}>
               <OperatorCard
