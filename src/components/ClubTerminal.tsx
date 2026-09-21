@@ -28,7 +28,8 @@ import {
     Loader
 } from 'lucide-react';
 import { runAgenticRag, processImportedFile, processWebUrl, checkBackendHealth } from '../services/geminiService';
-import { ingestChunksToChroma, retrieveFromChroma } from '../services/chromaService';
+import { replaceKnowledgeBaseIndex, retrieveFromChroma } from '../services/chromaService';
+import { KnowledgeBaseEntry, loadKnowledgeBase, saveKnowledgeBase } from '../services/knowledgeBaseService';
 import { simpleChunker } from '../services/ragEngine';
 import { DocumentChunk } from '../types/rag';
 import ascLogo from '../assets/asc_logo.png'; // Import Logo
@@ -45,7 +46,7 @@ interface Notification {
 /**
  * 模擬後端資料庫初始資料
  */
-const INITIAL_KNOWLEDGE_BASE = [
+const INITIAL_KNOWLEDGE_BASE: KnowledgeBaseEntry[] = [
     {
         id: 1,
         category: 'PROTOCOL_FEE',
@@ -93,7 +94,8 @@ const PM_THEME = {
 export default function ClubTerminal() {
     const [isOpen, setIsOpen] = useState(false); // Default to closed in main app
     const [activeTab, setActiveTab] = useState('chat');
-    const [knowledgeBase, setKnowledgeBase] = useState(INITIAL_KNOWLEDGE_BASE);
+    const [knowledgeBase, setKnowledgeBase] = useState<KnowledgeBaseEntry[]>(INITIAL_KNOWLEDGE_BASE);
+    const [isSavingKnowledgeBase, setIsSavingKnowledgeBase] = useState(false);
 
     // RAG Vector Store State
     // RAG State
@@ -119,6 +121,7 @@ export default function ClubTerminal() {
     // GUI Editor State
     const [adminViewMode, setAdminViewMode] = useState<'gui' | 'json'>('gui');
     const [isEditing, setIsEditing] = useState<number | null>(null);
+    const [pendingNewEntryId, setPendingNewEntryId] = useState<number | null>(null);
     const [editForm, setEditForm] = useState({ category: '', title: '', content: '' });
 
     // JSON Editor State
@@ -171,6 +174,16 @@ export default function ClubTerminal() {
             }
 
             setSystemStatus('ONLINE');
+            try {
+                const { entries } = await loadKnowledgeBase();
+                if (!active) return;
+                setKnowledgeBase(entries);
+                setJsonContent(JSON.stringify(entries, null, 2));
+            } catch (error) {
+                if (!active) return;
+                console.error('Unable to load the saved knowledge base:', error);
+                showNotification('WARNING', '無法讀取已儲存資料，暫時使用畫面上的預設內容。');
+            }
         };
 
         void verifyBackend();
@@ -227,10 +240,14 @@ export default function ClubTerminal() {
             setMessages(prev => [...prev, botResponse]);
         } catch (error) {
             console.error("Chat Error:", error);
+            const message = error instanceof Error ? error.message : "Unknown error";
+            const isTemporaryCapacityIssue = /high demand|UNAVAILABLE|\b503\b/i.test(message);
             setMessages(prev => [...prev, {
                 id: Date.now() + 1,
                 role: 'bot',
-                text: "SYSTEM_CRITICAL: Agent 流程發生致命錯誤。"
+                text: isTemporaryCapacityIssue
+                    ? "SYSTEM RETRY EXHAUSTED: Gemini 服務目前流量過高，請稍後再試。"
+                    : `SYSTEM ERROR: ${message}`
             }]);
         } finally {
             setIsTyping(false);
@@ -249,11 +266,35 @@ export default function ClubTerminal() {
         }
     };
 
-    const handleDelete = (id: number) => {
+    const persistKnowledgeBase = async (entries: KnowledgeBaseEntry[], successMessage: string) => {
+        setKnowledgeBase(entries);
+        setJsonContent(JSON.stringify(entries, null, 2));
+        setIsSavingKnowledgeBase(true);
+        try {
+            const saved = await saveKnowledgeBase(entries);
+            setKnowledgeBase(saved.entries);
+            setJsonContent(JSON.stringify(saved.entries, null, 2));
+            if (saved.indexStatus === 'updated') {
+                showNotification('SUCCESS', `${successMessage} 問答索引也已同步。`);
+            } else {
+                console.warn('Knowledge-base index is pending:', saved.indexError);
+                showNotification('WARNING', `${successMessage} 但問答索引尚未更新，請稍後按「更新問答索引」。`);
+            }
+            return true;
+        } catch (error) {
+            console.error('Unable to save the knowledge base:', error);
+            const message = error instanceof Error ? error.message : 'Unknown error';
+            showNotification('ERROR', `儲存失敗：${message}`);
+            return false;
+        } finally {
+            setIsSavingKnowledgeBase(false);
+        }
+    };
+
+    const handleDelete = async (id: number) => {
         if (window.confirm('WARNING: Deleting archive entry. Confirm?')) {
             const newData = knowledgeBase.filter(item => item.id !== id);
-            setKnowledgeBase(newData);
-            setJsonContent(JSON.stringify(newData, null, 2));
+            await persistKnowledgeBase(newData, '資料已刪除並保存到本機。');
         }
     };
 
@@ -265,24 +306,35 @@ export default function ClubTerminal() {
     const handleAddNew = () => {
         const newItem = {
             id: Date.now(),
-            category: 'UNKNOWN',
-            title: 'NEW_ENTRY',
-            content: 'Input data...',
+            category: '未分類',
+            title: '未命名資料',
+            content: '請輸入完整內容。',
             updatedAt: new Date().toISOString().split('T')[0]
         };
         const newData = [newItem, ...knowledgeBase];
         setKnowledgeBase(newData);
         setJsonContent(JSON.stringify(newData, null, 2));
+        setPendingNewEntryId(newItem.id);
         handleEditStart(newItem);
     };
 
-    const handleSave = (id: number) => {
+    const handleCancelEdit = (id: number) => {
+        if (pendingNewEntryId === id) {
+            const newData = knowledgeBase.filter(item => item.id !== id);
+            setKnowledgeBase(newData);
+            setJsonContent(JSON.stringify(newData, null, 2));
+            setPendingNewEntryId(null);
+        }
+        setIsEditing(null);
+    };
+
+    const handleSave = async (id: number) => {
         const newData = knowledgeBase.map(item =>
             item.id === id ? { ...editForm, id, updatedAt: new Date().toISOString().split('T')[0] } : item
         );
-        setKnowledgeBase(newData);
-        setJsonContent(JSON.stringify(newData, null, 2));
         setIsEditing(null);
+        const saved = await persistKnowledgeBase(newData, '資料已儲存到本機資料庫。');
+        if (saved) setPendingNewEntryId(null);
     };
 
     const handleJsonChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -290,13 +342,12 @@ export default function ClubTerminal() {
         setJsonError('');
     };
 
-    const handleJsonSave = () => {
+    const handleJsonSave = async () => {
         try {
             const parsed = JSON.parse(jsonContent);
             if (!Array.isArray(parsed)) throw new Error("Root must be an array");
-            setKnowledgeBase(parsed);
+            await persistKnowledgeBase(parsed, '整份知識庫已儲存到本機。');
             setJsonError('');
-            showNotification('SUCCESS', "DATABASE UPDATED SUCCESSFULLY");
         } catch (e: any) {
             setJsonError(e.message);
         }
@@ -316,12 +367,10 @@ export default function ClubTerminal() {
 
             const texts = docs.map(d => d.text);
             const metadatas = docs.map(d => d.metadata);
-            if (texts.length === 0) return;
+            // Replace the existing source so edited or deleted entries do not remain in RAG.
+            await replaceKnowledgeBaseIndex(texts, metadatas, "club_kb");
 
-            // Ingest to Chroma
-            await ingestChunksToChroma(texts, metadatas, "club_kb");
-
-            showNotification('SUCCESS', "Knowledge Base Indexed to ChromaDB Successfully.");
+            showNotification('SUCCESS', "問答索引已更新；小幫手會使用目前保存的內容。");
         } catch (e: any) {
             console.error("Reindexing failed", e);
             showNotification('ERROR', `Reindexing Failed: ${e.message || e}`);
@@ -371,26 +420,29 @@ export default function ClubTerminal() {
     };
 
     const handleUrlScrape = async () => {
-        if (!webUrlInput) return;
+        const url = webUrlInput.trim();
+        if (!url) return;
         setImportStatus('PROCESSING');
-        setImportLog(`CONNECTING TO NEURAL NET: ${webUrlInput}...`);
+        setImportLog('正在由本機後端讀取並整理網址內容…');
         setImportPreview(null);
 
         try {
-            const result = await processWebUrl(webUrlInput);
-            setImportLog('SCRAPING_COMPLETE. PARSING CONTENT...');
+            const result = await processWebUrl(url);
+            setImportLog('網址內容已整理，請確認後儲存到知識庫。');
             setImportPreview(result);
             setImportStatus('SUCCESS');
-        } catch (err) {
-            console.error(err);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : '網址匯入失敗。';
+            console.error(error);
             setImportStatus('ERROR');
-            setImportLog('FATAL: LINK_BROKEN_OR_ACCESS_DENIED');
+            setImportLog(message);
+            showNotification('ERROR', `網址匯入失敗：${message}`);
         }
     };
 
-    const confirmImport = () => {
+    const confirmImport = async () => {
         if (importPreview) {
-            const newItem = {
+            const newItem: KnowledgeBaseEntry = {
                 id: Date.now(),
                 category: importPreview.category || 'IMPORTED',
                 title: importPreview.title || 'Untitled Import',
@@ -398,8 +450,8 @@ export default function ClubTerminal() {
                 updatedAt: new Date().toISOString().split('T')[0]
             };
             const newData = [newItem, ...knowledgeBase];
-            setKnowledgeBase(newData);
-            setJsonContent(JSON.stringify(newData, null, 2));
+            const saved = await persistKnowledgeBase(newData, '匯入資料已儲存到本機。');
+            if (!saved) return;
             setIsImportModalOpen(false);
             setImportPreview(null);
             setImportStatus('IDLE');
@@ -464,7 +516,7 @@ export default function ClubTerminal() {
                         <div className="p-3 border-b border-cyan-900 flex justify-between items-center bg-cyan-950/30">
                             <div className="flex items-center gap-2 text-cyan-400">
                                 <UploadCloud size={18} />
-                                <span className="font-bold tracking-widest text-xs">DATA_INJECTION_PROTOCOL // VER.2.5</span>
+                                <span className="font-bold tracking-widest text-xs">匯入資料</span>
                             </div>
                             <button onClick={() => setIsImportModalOpen(false)} className="text-slate-500 hover:text-red-500">
                                 <X size={18} />
@@ -477,19 +529,19 @@ export default function ClubTerminal() {
                                 onClick={() => setImportTab('MEDIA')}
                                 className={`flex-1 py-2 text-center transition-colors ${importTab === 'MEDIA' ? 'bg-cyan-900/50 text-cyan-300' : 'text-slate-600 hover:text-slate-400'}`}
                             >
-                                MEDIA_SOURCE
+                                檔案
                             </button>
                             <button
                                 onClick={() => setImportTab('WEB')}
                                 className={`flex-1 py-2 text-center transition-colors ${importTab === 'WEB' ? 'bg-cyan-900/50 text-cyan-300' : 'text-slate-600 hover:text-slate-400'}`}
                             >
-                                NEURAL_LINK
+                                網址
                             </button>
                             <button
                                 onClick={() => setImportTab('JSON')}
                                 className={`flex-1 py-2 text-center transition-colors ${importTab === 'JSON' ? 'bg-cyan-900/50 text-cyan-300' : 'text-slate-600 hover:text-slate-400'}`}
                             >
-                                BATCH_JSON
+                                JSON 資料
                             </button>
                         </div>
 
@@ -517,15 +569,16 @@ export default function ClubTerminal() {
 
                                     <div className="space-y-2 text-xs">
                                         <div>
-                                            <label className="text-[10px] text-slate-500 uppercase font-bold">Category_Code</label>
+                                            <label className="text-[10px] text-slate-500 font-bold">分類標籤</label>
                                             <div className="text-cyan-300 bg-slate-950 p-2 border border-slate-800">{importPreview.category}</div>
+                                            <p className="text-[9px] text-slate-500 mt-1">用於辨識資料類型與問答脈絡，不控制權限或公開狀態。</p>
                                         </div>
                                         <div>
-                                            <label className="text-[10px] text-slate-500 uppercase font-bold">Ident_Title</label>
+                                            <label className="text-[10px] text-slate-500 font-bold">資料標題</label>
                                             <div className="text-white bg-slate-950 p-2 border border-slate-800 font-bold">{importPreview.title}</div>
                                         </div>
                                         <div>
-                                            <label className="text-[10px] text-slate-500 uppercase font-bold">Extracted_Payload</label>
+                                            <label className="text-[10px] text-slate-500 font-bold">內容預覽</label>
                                             <div className="text-slate-400 bg-slate-950 p-2 border border-slate-800 h-24 overflow-y-auto leading-relaxed scrollbar-thin scrollbar-thumb-cyan-900">
                                                 {importPreview.content}
                                             </div>
@@ -534,16 +587,22 @@ export default function ClubTerminal() {
 
                                     <div className="mt-auto flex gap-2 pt-4">
                                         <button onClick={() => { setImportPreview(null); setImportStatus('IDLE'); }} className="flex-1 py-2 text-[10px] border border-slate-700 hover:bg-slate-800 text-slate-400 uppercase">
-                                            Discard
+                                            捨棄
                                         </button>
-                                        <button onClick={confirmImport} className="flex-1 py-2 text-[10px] bg-cyan-900/30 border border-cyan-500 text-cyan-300 hover:bg-cyan-900/60 uppercase font-bold tracking-widest">
-                                            Confirm_Write
+                                        <button onClick={confirmImport} disabled={isSavingKnowledgeBase} className="flex-1 py-2 text-[10px] bg-cyan-900/30 border border-cyan-500 text-cyan-300 hover:bg-cyan-900/60 font-bold tracking-widest disabled:opacity-50">
+                                            {isSavingKnowledgeBase ? '儲存中…' : '儲存到知識庫'}
                                         </button>
                                     </div>
                                 </div>
                             ) : (
                                 // IDLE STATE - INPUTS
                                 <div className="flex-1 flex flex-col justify-center animate-in fade-in">
+                                    {importStatus === 'ERROR' && (
+                                        <div className="mb-4 border border-red-900/60 bg-red-950/30 p-3 text-xs text-red-200">
+                                            <p className="font-bold mb-1">網址／檔案匯入失敗</p>
+                                            <p className="text-red-300/80 break-words">{importLog}</p>
+                                        </div>
+                                    )}
                                     {importTab === 'MEDIA' && (
                                         <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-slate-700 rounded-lg cursor-pointer hover:border-cyan-500/50 hover:bg-slate-800/30 transition-all group">
                                             <div className="flex flex-col items-center justify-center pt-5 pb-6">
@@ -558,7 +617,7 @@ export default function ClubTerminal() {
                                     {importTab === 'WEB' && (
                                         <div className="space-y-4">
                                             <div className="flex flex-col gap-2">
-                                                <label className="text-xs font-bold text-cyan-500 uppercase">Target_Url</label>
+                                                <label className="text-xs font-bold text-cyan-500">網址</label>
                                                 <input
                                                     type="text"
                                                     value={webUrlInput}
@@ -572,7 +631,7 @@ export default function ClubTerminal() {
                                                 disabled={!webUrlInput}
                                                 className="w-full py-3 bg-cyan-900/20 border border-cyan-600 text-cyan-400 font-bold text-xs uppercase hover:bg-cyan-900/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                                             >
-                                                INITIATE_SCRAPING_PROTOCOL
+                                                讀取並整理網址
                                             </button>
                                         </div>
                                     )}
@@ -796,7 +855,7 @@ export default function ClubTerminal() {
                                             <button
                                                 onClick={() => setAdminViewMode('gui')}
                                                 className={`p-1.5 rounded-sm transition-colors border ${adminViewMode === 'gui' ? 'bg-cyan-900/40 border-cyan-500/50 text-cyan-300' : 'border-transparent text-slate-500 hover:text-cyan-300'}`}
-                                                title="Visual Editor"
+                                                title="資料編輯"
                                             >
                                                 <Table size={14} />
                                             </button>
@@ -806,7 +865,7 @@ export default function ClubTerminal() {
                                                     setJsonContent(JSON.stringify(knowledgeBase, null, 2));
                                                 }}
                                                 className={`p-1.5 rounded-sm transition-colors border ${adminViewMode === 'json' ? 'bg-cyan-900/40 border-cyan-500/50 text-cyan-300' : 'border-transparent text-slate-500 hover:text-cyan-300'}`}
-                                                title="Raw JSON Editor"
+                                                title="進階 JSON 編輯"
                                             >
                                                 <FileJson size={14} />
                                             </button>
@@ -814,10 +873,10 @@ export default function ClubTerminal() {
                                             <button
                                                 onClick={() => setIsImportModalOpen(true)}
                                                 className="p-1.5 border border-cyan-700/50 bg-cyan-900/20 hover:bg-cyan-900/50 text-cyan-400 transition-colors flex items-center gap-1"
-                                                title="Data Injection (Import)"
+                                                title="匯入資料"
                                             >
                                                 <Upload size={12} />
-                                                <span className="text-[9px] font-bold hidden sm:inline">IMPORT</span>
+                                                <span className="text-[9px] font-bold hidden sm:inline">匯入資料</span>
                                             </button>
                                         </div>
                                         <div className="flex items-center gap-2">
@@ -827,11 +886,12 @@ export default function ClubTerminal() {
                                             </span>
                                             <button
                                                 onClick={handleReindex}
-                                                disabled={isReindexing}
-                                                className={`p-1.5 border border-slate-700 hover:border-cyan-500 text-cyan-400 transition-colors ${isReindexing ? 'animate-spin' : ''}`}
-                                                title="Rebuild RAG Index"
+                                                disabled={isReindexing || isSavingKnowledgeBase}
+                                                className={`p-1.5 border border-slate-700 hover:border-cyan-500 text-cyan-400 transition-colors flex items-center gap-1 ${isReindexing ? 'animate-pulse' : ''}`}
+                                                title="若自動同步失敗，可重新建立小幫手的問答索引"
                                             >
                                                 <RefreshCw size={12} />
+                                                <span className="text-[9px] font-bold hidden sm:inline">重新更新索引</span>
                                             </button>
                                             <button
                                                 onClick={() => setIsAdminLoggedIn(false)}
@@ -848,12 +908,15 @@ export default function ClubTerminal() {
                                         {adminViewMode === 'gui' && (
                                             <div className="space-y-4">
                                                 <div className="flex items-center justify-between mb-2">
-                                                    <h4 className="text-[10px] font-bold text-cyan-600 uppercase tracking-widest">DATABASE_ENTRIES ({knowledgeBase.length})</h4>
+                                                    <div>
+                                                        <h4 className="text-[10px] font-bold text-cyan-600 tracking-widest">知識庫資料（{knowledgeBase.length}）</h4>
+                                                        <p className="text-[9px] text-slate-500 mt-1">儲存修改會寫入本機並自動同步小幫手；若同步失敗，再按「重新更新索引」。</p>
+                                                    </div>
                                                     <button
                                                         onClick={handleAddNew}
                                                         className="flex items-center gap-1 text-[10px] bg-cyan-950 border border-cyan-800 text-cyan-400 px-2 py-1 hover:bg-cyan-900 transition-colors"
                                                     >
-                                                        <Plus size={10} /> INSERT ROW
+                                                        <Plus size={10} /> 新增資料
                                                     </button>
                                                 </div>
 
@@ -862,29 +925,39 @@ export default function ClubTerminal() {
                                                         {isEditing === item.id ? (
                                                             <div className="space-y-2 animate-in fade-in duration-300">
                                                                 <div className="grid grid-cols-3 gap-2">
-                                                                    <input
-                                                                        className="col-span-1 p-1.5 text-[10px] border border-cyan-800 bg-black text-cyan-200 focus:border-cyan-500 outline-none font-bold uppercase"
-                                                                        value={editForm.category}
-                                                                        onChange={e => setEditForm({ ...editForm, category: e.target.value })}
-                                                                        placeholder="CATEGORY"
-                                                                    />
-                                                                    <input
-                                                                        className="col-span-2 p-1.5 text-xs font-bold border border-cyan-800 bg-black text-white focus:border-cyan-500 outline-none"
-                                                                        value={editForm.title}
-                                                                        onChange={e => setEditForm({ ...editForm, title: e.target.value })}
-                                                                        placeholder="TITLE"
-                                                                    />
+                                                                    <label className="col-span-1 space-y-1">
+                                                                        <span className="block text-[9px] text-cyan-400">分類標籤</span>
+                                                                        <input
+                                                                            className="w-full p-1.5 text-[10px] border border-cyan-800 bg-black text-cyan-200 focus:border-cyan-500 outline-none font-bold"
+                                                                            value={editForm.category}
+                                                                            onChange={e => setEditForm({ ...editForm, category: e.target.value })}
+                                                                            placeholder="例如：社費、場地"
+                                                                        />
+                                                                    </label>
+                                                                    <label className="col-span-2 space-y-1">
+                                                                        <span className="block text-[9px] text-cyan-400">資料標題</span>
+                                                                        <input
+                                                                            className="w-full p-1.5 text-xs font-bold border border-cyan-800 bg-black text-white focus:border-cyan-500 outline-none"
+                                                                            value={editForm.title}
+                                                                            onChange={e => setEditForm({ ...editForm, title: e.target.value })}
+                                                                            placeholder="例如：本學期社費公告"
+                                                                        />
+                                                                    </label>
                                                                 </div>
-                                                                <textarea
-                                                                    className="w-full p-2 text-xs border border-cyan-800 bg-black text-slate-300 h-24 resize-none focus:border-cyan-500 outline-none font-sans leading-relaxed"
-                                                                    value={editForm.content}
-                                                                    onChange={e => setEditForm({ ...editForm, content: e.target.value })}
-                                                                    placeholder="CONTENT_DATA"
-                                                                />
+                                                                <label className="block space-y-1">
+                                                                    <span className="block text-[9px] text-cyan-400">內容</span>
+                                                                    <textarea
+                                                                        className="w-full p-2 text-xs border border-cyan-800 bg-black text-slate-300 h-24 resize-none focus:border-cyan-500 outline-none font-sans leading-relaxed"
+                                                                        value={editForm.content}
+                                                                        onChange={e => setEditForm({ ...editForm, content: e.target.value })}
+                                                                        placeholder="請填寫完整、可供小幫手回答的資訊。"
+                                                                    />
+                                                                </label>
+                                                                <p className="text-[9px] leading-relaxed text-slate-500">分類標籤用來標示資料類型，會隨內容寫入問答索引，協助小幫手理解脈絡；它不控制權限，也不會決定資料是否公開。</p>
                                                                 <div className="flex justify-end gap-2">
-                                                                    <button onClick={() => setIsEditing(null)} className="px-2 py-1 text-[10px] text-slate-500 hover:text-white uppercase">Cancel</button>
-                                                                    <button onClick={() => handleSave(item.id)} className="px-3 py-1 text-[10px] border border-green-600 bg-green-900/20 text-green-400 hover:bg-green-900/40 flex items-center gap-1 font-bold uppercase">
-                                                                        <Save size={10} /> COMMIT
+                                                                    <button onClick={() => handleCancelEdit(item.id)} className="px-2 py-1 text-[10px] text-slate-500 hover:text-white">取消</button>
+                                                                    <button onClick={() => handleSave(item.id)} disabled={isSavingKnowledgeBase} className="px-3 py-1 text-[10px] border border-green-600 bg-green-900/20 text-green-400 hover:bg-green-900/40 flex items-center gap-1 font-bold disabled:opacity-50">
+                                                                        <Save size={10} /> 儲存修改
                                                                     </button>
                                                                 </div>
                                                             </div>
@@ -892,8 +965,11 @@ export default function ClubTerminal() {
                                                             <div className="flex flex-col gap-1">
                                                                 <div className="flex justify-between items-start">
                                                                     <span className="text-[9px] font-bold text-slate-900 bg-cyan-700/80 px-1.5 py-0.5">
-                                                                        {item.category}
+                                                                        分類：{item.category}
                                                                     </span>
+                                                                    {pendingNewEntryId === item.id && (
+                                                                        <span className="text-[9px] font-bold text-amber-200 bg-amber-900/50 px-1.5 py-0.5">尚未儲存</span>
+                                                                    )}
                                                                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                                         <button onClick={() => handleEditStart(item)} className="text-slate-500 hover:text-cyan-400"><Edit2 size={12} /></button>
                                                                         <button onClick={() => handleDelete(item.id)} className="text-slate-500 hover:text-red-500"><Trash2 size={12} /></button>
@@ -912,7 +988,10 @@ export default function ClubTerminal() {
                                         {adminViewMode === 'json' && (
                                             <div className="h-full flex flex-col">
                                                 <div className="flex justify-between items-center mb-2">
-                                                    <span className="text-[10px] text-slate-500">RAW_DATA_EDITOR // JSON</span>
+                                                    <div>
+                                                        <span className="text-[10px] text-slate-500">進階 JSON 編輯</span>
+                                                        <p className="text-[9px] text-amber-500/70 mt-1">儲存時會覆蓋整份知識庫；請先確認格式與內容。</p>
+                                                    </div>
                                                     {jsonError && <span className="text-[10px] text-red-500 animate-pulse">{jsonError}</span>}
                                                 </div>
                                                 <textarea
@@ -921,8 +1000,8 @@ export default function ClubTerminal() {
                                                     onChange={handleJsonChange}
                                                 />
                                                 <div className="flex justify-end mt-2">
-                                                    <button onClick={handleJsonSave} className="px-4 py-2 bg-cyan-900/30 border border-cyan-500 text-cyan-400 text-xs font-bold hover:bg-cyan-900/50 transition-colors uppercase">
-                                                        Commit_Changes
+                                                    <button onClick={handleJsonSave} disabled={isSavingKnowledgeBase} className="px-4 py-2 bg-cyan-900/30 border border-cyan-500 text-cyan-400 text-xs font-bold hover:bg-cyan-900/50 transition-colors disabled:opacity-50">
+                                                        儲存整份知識庫
                                                     </button>
                                                 </div>
                                             </div>

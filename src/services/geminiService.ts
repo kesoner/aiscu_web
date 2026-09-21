@@ -53,12 +53,9 @@ export async function processImportedFile(
 export async function processWebUrl(
   url: string
 ): Promise<{ title: string; category: string; content: string }> {
-  const scrapeResponse = await fetch(`https://r.jina.ai/${url}`);
-  if (!scrapeResponse.ok) throw new Error("無法讀取網頁內容。");
-
-  return apiJson("/api/rag/summarize", {
+  return apiJson("/api/rag/import/url", {
     method: "POST",
-    body: JSON.stringify({ markdown: await scrapeResponse.text() }),
+    body: JSON.stringify({ url }),
   });
 }
 
