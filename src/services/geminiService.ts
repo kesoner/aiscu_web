@@ -1,227 +1,83 @@
-// geminiService.ts
-import { GoogleGenAI } from "@google/genai";
-import { DocumentChunk, AgentStep } from "../types/rag";
+import { AgentStep, DocumentChunk } from "../types/rag";
+import { apiJson } from "./apiClient";
 
-// ===================================================
-// INIT: Singleton AI Client
-// ===================================================
-
-let ai: GoogleGenAI | null = null;
-
-const getAI = () => {
-  if (!ai) {
-    const apiKey = import.meta.env.VITE_API_KEY;
-    if (!apiKey) {
-      console.error("CRITICAL: VITE_API_KEY is missing!");
-      throw new Error("API Key missing");
-    }
-    ai = new GoogleGenAI({ apiKey });
-  }
-  return ai;
+type BackendHealth = {
+  status: "ready" | "degraded";
+  services: {
+    gemini: { configured: boolean };
+    vectorStore: { configured: boolean };
+  };
 };
 
-export const checkApiKey = (): boolean => !!import.meta.env.VITE_API_KEY;
+type RagAnswer = {
+  answer: string;
+  source: "RAG_DATA" | "NO_DATA";
+  chunks: DocumentChunk[];
+};
 
-// ===================================================
-// MODELS
-// ===================================================
-
-const EMBEDDING_MODEL = "text-multilingual-embedding-002";
-const GENERATION_MODEL = "gemini-2.5-flash";
-
-// ===================================================
-// EMBEDDING SERVICE
-// ===================================================
-
-export const getEmbeddings = async (texts: string[]): Promise<number[][]> => {
+export async function checkBackendHealth(): Promise<boolean> {
   try {
-    const results = await Promise.all(
-      texts.map(async (text) => {
-        const res = await getAI().models.embedContent({
-          model: EMBEDDING_MODEL,
-          contents: [{ parts: [{ text }] }],
-        });
-        return res.embeddings?.[0]?.values ?? [];
-      })
+    const health = await apiJson<BackendHealth>("/api/health");
+    return (
+      health.status === "ready" &&
+      health.services.gemini.configured &&
+      health.services.vectorStore.configured
     );
-    return results;
-  } catch (error) {
-    console.error("❌ Error generating embeddings:", error);
-    throw new Error("Embedding generation failed");
+  } catch {
+    return false;
   }
-};
+}
 
-// ===================================================
-// File -> InlineData Part
-// ===================================================
-
-const fileToPart = (
-  file: File
-): Promise<{ inlineData: { data: string; mimeType: string } }> => {
+function fileToPart(file: File): Promise<{ data: string; mimeType: string }> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = reject;
-
     reader.onloadend = () => {
-      const base64 = (reader.result as string).split(",")[1];
-      resolve({
-        inlineData: { data: base64, mimeType: file.type },
-      });
+      const result = reader.result as string;
+      resolve({ data: result.split(",")[1], mimeType: file.type });
     };
-
     reader.readAsDataURL(file);
   });
-};
+}
 
-// ===================================================
-// MULTIMODAL FILE PROCESSOR
-// ===================================================
-
-export const processImportedFile = async (
+export async function processImportedFile(
   file: File
-): Promise<{ title: string; category: string; content: string }> => {
+): Promise<{ title: string; category: string; content: string }> {
   const filePart = await fileToPart(file);
-
-  const systemPrompt = `
-    你是一個資料庫歸檔專員 (Archivist)。
-    任務：解析檔案內容並輸出 JSON。
-
-    {
-      "title": "精確標題",
-      "category": "DOCUMENT | EVIDENCE | AUDIO_LOG | IMG_DATA | MEETING_NOTE",
-      "content": "OCR、摘要或逐字稿（繁體中文）"
-    }
-
-    嚴禁 Markdown，必須為純 JSON。
-  `;
-
-  try {
-    const result = await getAI().models.generateContent({
-      model: GENERATION_MODEL,
-      config: { responseMimeType: "application/json" },
-      contents: [
-        { role: "user", parts: [filePart] },
-        { role: "user", parts: [{ text: systemPrompt }] },
-      ],
-    });
-
-    return JSON.parse(result.text?.trim() || "{}");
-  } catch (error) {
-    console.error("❌ File processing failed:", error);
-    throw new Error("無法解析檔案內容");
-  }
-};
-
-// ===================================================
-// URL PROCESSOR (Jina Reader)
-// ===================================================
-
-export const processWebUrl = async (
-  url: string
-): Promise<{ title: string; category: string; content: string }> => {
-  try {
-    const scrapeRes = await fetch(`https://r.jina.ai/${url}`);
-    if (!scrapeRes.ok) throw new Error("Failed to fetch URL");
-
-    const markdown = await scrapeRes.text();
-
-    const prompt = `
-      你是一個網路情資收集員，請摘要以下內容：
-
-      ${markdown.substring(0, 30000)}
-
-      顯示格式：純 JSON。
-
-      {
-        "title": "網頁標題",
-        "category": "WEB_ARCHIVE",
-        "content": "繁中摘要"
-      }
-    `;
-
-    const result = await getAI().models.generateContent({
-      model: GENERATION_MODEL,
-      config: { responseMimeType: "application/json" },
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-    });
-
-    return JSON.parse(result.text?.trim() || "{}");
-  } catch (error) {
-    console.error("❌ Web scraping failed:", error);
-    throw new Error("無法讀取網頁內容");
-  }
-};
-
-// ===================================================
-// FINAL ANSWER GENERATOR
-// ===================================================
-
-export const generateFinalAnswer = async (
-  query: string,
-  contextText: string
-): Promise<string> => {
-  const systemInstruction = `
-你是 AISCU（東吳大學人工智慧應用社）的官方 AI 小助手。
-
-=== 回答原則 ===
-1. 若 Context 有明確資訊 → 絕對優先引用。
-2. 禁止捏造不存在的時間、社費、規則。
-3. 若 Context 內容不足但問題屬於官方資訊：
-   → 回答後補一句：「詳細資訊請洽詢社團幹部喔～」
-4. 語氣溫柔、親切、自然，可稍微可愛（😊✨）
-
-=== Context ===
-${contextText || "(查無資料)"}
-
-=== Query ===
-${query}
-`;
-
-  const res = await getAI().models.generateContent({
-    model: GENERATION_MODEL,
-    config: {
-      systemInstruction,
-      temperature: 0.7,
-    },
-    contents: [{ role: "user", parts: [{ text: query }] }],
+  return apiJson("/api/rag/import/file", {
+    method: "POST",
+    body: JSON.stringify(filePart),
   });
+}
 
-  return res.text || "SYSTEM_ERR: 無法產生回應。";
-};
+export async function processWebUrl(
+  url: string
+): Promise<{ title: string; category: string; content: string }> {
+  const scrapeResponse = await fetch(`https://r.jina.ai/${url}`);
+  if (!scrapeResponse.ok) throw new Error("無法讀取網頁內容。");
 
-// ===================================================
-// RAG MAIN PIPELINE
-// ===================================================
+  return apiJson("/api/rag/summarize", {
+    method: "POST",
+    body: JSON.stringify({ markdown: await scrapeResponse.text() }),
+  });
+}
 
 export async function* runAgenticRag(
   query: string,
-  retriever: (q: string) => Promise<DocumentChunk[]>
+  _retriever?: (query: string) => Promise<DocumentChunk[]>
 ): AsyncGenerator<AgentStep> {
-  yield {
-    type: "log",
-    message: `INIT: 執行向量檢索... query="${query}"`,
-  };
+  yield { type: "log", message: `INIT: 將問題送至本機 RAG 後端... query="${query}"` };
 
-  const chunks = await retriever(query);
-
-  const context =
-    chunks.length > 0 ? chunks.map((c) => c.text).join("\n---\n") : "";
+  const response = await apiJson<RagAnswer>("/api/rag/answer", {
+    method: "POST",
+    body: JSON.stringify({ query, nResults: 3 }),
+  });
 
   yield {
     type: "log",
-    message:
-      chunks.length > 0
-        ? `RAG: 找到 ${chunks.length} 筆內容，交給模型生成回答`
-        : `RAG: 查無相關資料，將以「無 context」模式回覆`,
+    message: response.chunks.length
+      ? `RAG: 找到 ${response.chunks.length} 筆內容，已由後端模型生成回答。`
+      : "RAG: 查無相關資料，已以無 context 模式回答。",
   };
-
-  yield { type: "log", message: "GENERATING: 正在生成最終回覆..." };
-
-  const answer = await generateFinalAnswer(query, context);
-
-  yield {
-    type: "answer",
-    message: answer,
-    source: chunks.length > 0 ? "RAG_DATA" : "NO_DATA",
-  };
+  yield { type: "answer", message: response.answer, source: response.source };
 }

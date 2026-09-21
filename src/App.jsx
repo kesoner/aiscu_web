@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import './App.css';
+import { apiUrl } from './services/apiClient';
 import {
   Code,
   Users,
@@ -267,7 +268,7 @@ const ApplicationPage = ({ setPage }) => {
     setMessage('');
 
     try {
-      const response = await fetch('http://localhost:3001/api/apply', {
+      const response = await fetch(apiUrl('/api/apply'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

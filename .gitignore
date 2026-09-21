@@ -28,3 +28,6 @@ applications/
 
 # Secrets
 .env
+
+# Local vector database volume
+.local/

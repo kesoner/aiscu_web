@@ -27,7 +27,7 @@ import {
     UploadCloud,
     Loader
 } from 'lucide-react';
-import { runAgenticRag, processImportedFile, processWebUrl, checkApiKey } from '../services/geminiService';
+import { runAgenticRag, processImportedFile, processWebUrl, checkBackendHealth } from '../services/geminiService';
 import { ingestChunksToChroma, retrieveFromChroma } from '../services/chromaService';
 import { simpleChunker } from '../services/ragEngine';
 import { DocumentChunk } from '../types/rag';
@@ -155,20 +155,28 @@ export default function ClubTerminal() {
 
     // Initial Indexing on Mount
     useEffect(() => {
-        const hasKey = checkApiKey();
-        console.log("API Key Check:", hasKey, "Value:", import.meta.env.VITE_API_KEY);
-        if (!hasKey) {
-            setSystemStatus('OFFLINE');
-            setMessages(prev => [
-                ...prev,
-                { id: Date.now(), role: 'bot', text: `SYSTEM ALERT: API Key missing. (Read: ${import.meta.env.VITE_API_KEY}) Please configure VITE_API_KEY in .env.local.` }
-            ]);
-            return;
-        }
+        let active = true;
 
-        // if (knowledgeBase.length > 0 && vectorStore.length === 0) {
-        //     handleReindex();
-        // }
+        const verifyBackend = async () => {
+            const ready = await checkBackendHealth();
+            if (!active) return;
+
+            if (!ready) {
+                setSystemStatus('OFFLINE');
+                setMessages(prev => [
+                    ...prev,
+                    { id: Date.now(), role: 'bot', text: 'SYSTEM ALERT: 本機 RAG 後端尚未就緒。請確認本機伺服器、Chroma 與 Gemini 設定。' }
+                ]);
+                return;
+            }
+
+            setSystemStatus('ONLINE');
+        };
+
+        void verifyBackend();
+        return () => {
+            active = false;
+        };
     }, []);
 
     // --- Logic ---
